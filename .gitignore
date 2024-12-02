@@ -19,4 +19,4 @@ dl
 
 
 #ignore executable files without extension
-apps/*[^.]*$
+!*.*
