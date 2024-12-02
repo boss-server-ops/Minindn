@@ -16,3 +16,7 @@ dl
 
 # Vagrant
 .vagrant
+
+
+#ignore executable files without extension
+*~
