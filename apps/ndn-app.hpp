@@ -29,10 +29,39 @@ public:
     uint32_t GetId() const;
 
     /**
-     * @brief Method that will be called every time new Interest arrives
+     * @brief Method that will be called every time a new Interest arrives
+     *
+     * This method is called whenever an Interest packet that matches the registered
+     * prefix is received. It is responsible for handling the Interest and generating
+     * an appropriate Data packet in response.
+     *
+     * @param filter The Interest filter that matched the received Interest packet
      * @param interest The received Interest packet
      */
-    virtual void OnInterest(const ndn::Interest &interest);
+    virtual void OnInterest(const ndn::InterestFilter &filter, const ndn::Interest &interest);
+
+    /**
+     * @brief Called when the prefix registration is successful
+     *
+     * This method is called when the prefix registration is successful. It can be used
+     * to perform any actions that need to be taken after the prefix has been successfully
+     * registered.
+     *
+     * @param prefix The registered prefix
+     */
+    virtual void OnRegisterSuccess(const ndn::Name &prefix);
+
+    /**
+     * @brief Called when the prefix registration fails
+     *
+     * This method is called when the prefix registration fails. It can be used to perform
+     * any actions that need to be taken after the prefix registration has failed, such as
+     * logging the failure or attempting to register the prefix again.
+     *
+     * @param prefix The prefix that failed to register
+     * @param reason The reason for the failure
+     */
+    virtual void OnRegisterFailure(const ndn::Name &prefix, const std::string &reason);
 
     /**
      * @brief Method that will be called every time new Data arrives
@@ -107,6 +136,7 @@ protected:
 
     bool m_active; ///< @brief Flag to indicate that application is active (set by StartApplication and StopApplication)
     std::shared_ptr<ndn::Face> m_face;
+    // ndn::Face m_face;
     uint32_t m_appId;
 
     // Logger

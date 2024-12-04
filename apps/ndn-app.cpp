@@ -2,7 +2,7 @@
 #include <experimental/filesystem>
 namespace std
 {
-    namespace filesystem = experimental::filesystem;
+    namespace fs = experimental::filesystem;
 }
 #include <fstream>
 #include <sstream>
@@ -34,9 +34,19 @@ uint32_t App::GetId() const
     return m_appId;
 }
 
-void App::OnInterest(const ndn::Interest &interest)
+void App::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest &interest)
 {
     spdlog::info("Received Interest: {}", interest.getName().toUri());
+}
+
+void App::OnRegisterSuccess(const ndn::Name &prefix)
+{
+    spdlog::info("Successfully registered prefix: {}", prefix.toUri());
+}
+
+void App::OnRegisterFailure(const ndn::Name &prefix, const std::string &reason)
+{
+    spdlog::error("Failed to register prefix: {} ({})", prefix.toUri(), reason);
 }
 
 void App::OnData(const ndn::Data &data)
@@ -61,9 +71,6 @@ void App::StartApplication()
 
     m_active = true;
     spdlog::info("Application started");
-
-    // In real machine, make sure Face is correctly initialized
-    m_face->processEvents(ndn::time::milliseconds::zero(), true);
 }
 
 void App::StopApplication()
@@ -136,9 +143,9 @@ int App::findRoundIndex(const std::vector<std::vector<std::string>> &roundVec, c
 
 void App::CheckDirectoryExist(const std::string &path)
 {
-    if (!std::filesystem::exists(path))
+    if (!std::fs::exists(path))
     {
-        if (!std::filesystem::create_directories(path))
+        if (!std::fs::create_directories(path))
         {
             spdlog::error("Failed to create directory: {}", path);
             exit(EXIT_FAILURE); // Stop execution if unable to create directory
