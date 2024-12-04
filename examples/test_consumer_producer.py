@@ -29,7 +29,7 @@ if __name__ == '__main__':
     sleep(60)  #wait for routing convergence
 
     node_a = ndn.net.get('a')
-    node_b = ndn.net.get('b')
+    node_b = ndn.net.get('c')
 
     # 获取consumer和producer的绝对路径
     consumer_path = os.path.abspath('./apps/consumer_test')
@@ -38,7 +38,7 @@ if __name__ == '__main__':
     # 在节点b上启动producer程序
     info('Starting Producer on node b\n')
     producer = Application(node_b)
-    producer.start(producer_path, 'producertest.log')  
+    producer.start(producer_path + ' /example/testApp', 'producertest.log')  
 
     producerPrefix = "/example/testApp"
     node_b.cmd('nlsrc advertise {}'.format(producerPrefix))  # 在节点b上广告前缀
@@ -58,3 +58,4 @@ if __name__ == '__main__':
     producer.stop()
 
     ndn.stop()
+

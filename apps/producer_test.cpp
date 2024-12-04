@@ -5,7 +5,9 @@
 #include <memory>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
-
+#include <cstdlib> // for system()
+#include <thread>  // for sleep
+#include <chrono>  // for sleep
 class ProducerTest
 {
 public:
@@ -22,14 +24,15 @@ public:
 
     void run()
     {
-        // 注册前缀
+        // register prefix
         m_face.setInterestFilter("/example/testApp",
                                  std::bind(&ProducerTest::onInterest, this, std::placeholders::_1, std::placeholders::_2),
                                  std::bind(&ProducerTest::onRegisterSuccess, this, std::placeholders::_1),
                                  std::bind(&ProducerTest::onRegisterFailure, this, std::placeholders::_1, std::placeholders::_2));
         spdlog::info("Registering prefix /example/testApp");
 
-        // 处理事件循环
+        advertisePrefix("/example/testApp");
+        std::this_thread::sleep_for(std::chrono::seconds(5));
         m_face.processEvents();
     }
 
@@ -59,6 +62,20 @@ private:
     void onRegisterFailure(const ndn::Name &prefix, const std::string &reason)
     {
         spdlog::error("Failed to register prefix: {} ({})", prefix.toUri(), reason);
+    }
+
+    void advertisePrefix(const std::string &prefix)
+    {
+        std::string command = "nlsrc advertise " + prefix;
+        int result = std::system(command.c_str());
+        if (result == 0)
+        {
+            spdlog::info("Successfully advertised prefix: {}", prefix);
+        }
+        else
+        {
+            spdlog::error("Failed to advertise prefix: {}", prefix);
+        }
     }
 
 private:
