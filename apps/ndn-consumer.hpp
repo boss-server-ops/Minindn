@@ -30,53 +30,139 @@ public:
 
     void run();
 
+    /**
+     * @brief Method that will be called every time new Data arrives
+     * @param interest The sent Interest packet
+     * @param data The received Data packet
+     */
     virtual void OnData(const ndn::Interest &interest, const ndn::Data &data);
+
+    /**
+     * @brief Method that will be called every time a Nack arrives
+     * @param interest The sent Interest packet
+     * @param nack The received Nack packet
+     */
     virtual void OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack);
+
+    /**
+     * @brief Method that will be called every time an Interest times out
+     * @param interest The sent Interest packet
+     */
     virtual void OnTimeout(const ndn::Interest &interest);
+
     void TreeBroadcast();
     void ConstructAggregationTree();
 
     void SendPacket();
     void InterestGenerator();
-    // Data aggregation
+
+    /**
+     * @brief Method to aggregate data
+     * @param data The received ModelData
+     * @param seq The sequence number
+     */
     void aggregate(const ModelData &data, const uint32_t &seq);
 
+    /**
+     * @brief Method to get the mean of the parameters
+     * @param seq The sequence number
+     * @return A vector of mean values
+     */
     std::vector<float> getMean(const uint32_t &seq);
 
-    // Calculate aggregate time and response time
+    /**
+     * @brief Method to calculate the sum of response times
+     * @param response_time The response time to add
+     */
     void ResponseTimeSum(int64_t response_time);
 
+    /**
+     * @brief Method to get the average response time
+     * @return The average response time
+     */
     int64_t GetResponseTimeAverage();
 
+    /**
+     * @brief Method to calculate the sum of aggregate times
+     * @param response_time The aggregate time to add
+     */
     void AggregateTimeSum(int64_t response_time);
 
+    /**
+     * @brief Method to get the average aggregate time
+     * @return The average aggregate time
+     */
     int64_t GetAggregateTimeAverage();
 
-    // Measure threshold for congestion control
+    /**
+     * @brief Method to measure the RTT threshold for congestion control
+     * @param responseTime The response time
+     * @param roundIndex The round index
+     */
     void RTTThresholdMeasure(int64_t responseTime, int roundIndex);
 
-    // Based on response time, measure RTT for each round
+    /**
+     * @brief Method to measure RTT for each round based on response time
+     * @param resTime The response time
+     * @param roundIndex The round index
+     * @return The measured RTT
+     */
     std::chrono::milliseconds RTOMeasurement(int64_t resTime, int roundIndex);
 
-    // Record results in files, for testing purpose only
+    /**
+     * @brief Method to record RTO results in files for testing purposes
+     */
     void RTORecorder();
 
-    // Record RTT of each packet and some other relevant info
+    /**
+     * @brief Method to record RTT of each packet and other relevant info
+     * @param responseTime The response time
+     * @param seq The sequence number
+     * @param ECN The ECN flag
+     * @param threshold_measure The measured threshold
+     * @param threshold_actual The actual threshold
+     */
     void ResponseTimeRecorder(std::chrono::milliseconds responseTime, uint32_t seq, bool ECN, int64_t threshold_measure, int64_t threshold_actual);
 
+    /**
+     * @brief Method to record aggregate times
+     * @param aggregateTime The aggregate time
+     */
     void AggregateTimeRecorder(std::chrono::milliseconds aggregateTime);
 
+    /**
+     * @brief Method to record throughput
+     * @param interestThroughput The interest throughput
+     * @param dataThroughput The data throughput
+     */
     void ThroughputRecorder(int interestThroughput, int dataThroughput);
 
+    /**
+     * @brief Method to initialize the log file
+     */
     void InitializeLogFile();
 
+    /**
+     * @brief Method to check if the window can be decreased
+     * @param threshold The threshold value
+     * @return True if the window can be decreased, false otherwise
+     */
     bool CanDecreaseWindow(int64_t threshold);
 
-    // Override the function in App class to return leaf nodes
+    /**
+     * @brief Override the function in App class to return leaf nodes
+     * @param key The key to search for
+     * @param treeMap The tree map
+     * @return A map of leaf nodes
+     */
     std::map<std::string, std::set<std::string>>
     getLeafNodes(const std::string &key, const std::map<std::string, std::vector<std::string>> &treeMap);
 
-    // Return round index
+    /**
+     * @brief Method to find the round index
+     * @param target The target string
+     * @return The round index
+     */
     int findRoundIndex(const std::string &target);
 
 public:
@@ -93,10 +179,21 @@ protected:
 
     virtual void SendInterest(std::shared_ptr<ndn::Name> newName);
 
+    /**
+     * @brief Method to check for retransmission timeout
+     */
     void CheckRetxTimeout();
 
+    /**
+     * @brief Method to set the retransmission timer
+     * @param retxTimer The retransmission timer value
+     */
     void SetRetxTimer(std::chrono::milliseconds retxTimer);
 
+    /**
+     * @brief Method to get the retransmission timer
+     * @return The retransmission timer value
+     */
     std::chrono::milliseconds GetRetxTimer() const;
 
 protected:
@@ -196,9 +293,9 @@ protected:
     std::uniform_real_distribution<> m_uniformDist; // average distribution
     uint32_t m_seq;                                 ///< @brief currently requested sequence number
     uint32_t m_seqMax;                              ///< @brief maximum number of sequence number
-    EventId m_sendEvent;                            ///< @brief EventId of pending "send packet" event
+    std::function<void()> m_sendEvent;              ///< @brief EventId of pending "send packet" event
     std::chrono::milliseconds m_retxTimer;          ///< @brief Currently estimated retransmission timer
-    EventId m_retxEvent;                            ///< @brief Event to check whether or not retransmission should be performed
+    std::function<void()> m_retxEvent;              ///< @brief Event to check whether or not retransmission should be performed
 
     // change the type of the m_rtt of the ndnSIM
     std::unique_ptr<ndn::util::RttEstimator> m_rtt; ///< @brief RTT estimator
@@ -268,4 +365,5 @@ protected:
     SeqTimeoutsContainer m_seqFullDelay;
     std::map<uint32_t, uint32_t> m_seqRetxCounts;
 };
-#endif
+
+#endif // NDN_CONSUMER_HPP
