@@ -49,14 +49,19 @@ void App::OnRegisterFailure(const ndn::Name &prefix, const std::string &reason)
     spdlog::error("Failed to register prefix: {} ({})", prefix.toUri(), reason);
 }
 
-void App::OnData(const ndn::Data &data)
+void App::OnData(const ndn::Interest &interest, const ndn::Data &data)
 {
     spdlog::info("Received Data: {}", data.getName().toUri());
 }
 
-void App::OnNack(const ndn::lp::Nack &nack)
+void App::OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack)
 {
-    spdlog::error("Received Nack: {}", nack.getInterest().getName().toUri());
+    spdlog::error("Received Nack for Interest: {} ({})", interest.getName().toUri(), static_cast<int>(nack.getReason()));
+}
+
+void App::OnTimeout(const ndn::Interest &interest)
+{
+    spdlog::error("Interest timeout for: {}", interest.getName().toUri());
 }
 
 void App::ConstructAggregationTree()

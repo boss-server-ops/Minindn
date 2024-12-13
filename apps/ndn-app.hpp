@@ -65,16 +65,23 @@ public:
 
     /**
      * @brief Method that will be called every time new Data arrives
+     * @param interest The sent Interest packet
      * @param data The received Data packet
      */
-    virtual void OnData(const ndn::Data &data);
+    virtual void OnData(const ndn::Interest &interest, const ndn::Data &data);
 
     /**
-     * @brief Method that will be called every time new Nack arrives
+     * @brief Method that will be called every time a Nack arrives
+     * @param interest The sent Interest packet
      * @param nack The received Nack packet
      */
-    virtual void OnNack(const ndn::lp::Nack &nack);
+    virtual void OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack);
 
+    /**
+     * @brief Method that will be called every time an Interest times out
+     * @param interest The sent Interest packet
+     */
+    virtual void OnTimeout(const ndn::Interest &interest);
     /**
      * @brief Construct the aggregation tree
      */
