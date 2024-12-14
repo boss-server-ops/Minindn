@@ -217,7 +217,7 @@ protected:
 
 protected:
     // Topology file name
-    std::string filename = "src/ndnSIM/examples/topologies/DataCenterTopology.txt";
+    std::string filename = "minindn/topologies/DataCenterTopology.txt";
 
     // Testing log file
     // ToDo: Update logging for multiple rounds
@@ -312,9 +312,9 @@ protected:
     std::uniform_real_distribution<> m_uniformDist; // average distribution
     uint32_t m_seq;                                 ///< @brief currently requested sequence number
     uint32_t m_seqMax;                              ///< @brief maximum number of sequence number
-    std::function<void()> m_sendEvent;              ///< @brief EventId of pending "send packet" event
+    std::thread m_sendEvent;                        ///< @brief EventId of pending "send packet" event
     std::chrono::milliseconds m_retxTimer;          ///< @brief Currently estimated retransmission timer
-    std::function<void()> m_retxEvent;              ///< @brief Event to check whether or not retransmission should be performed
+    std::thread m_retxEvent;                        ///< @brief Event to check whether or not retransmission should be performed
 
     // change the type of the m_rtt of the ndnSIM
     std::unique_ptr<ndn::util::RttEstimator> m_rtt; ///< @brief RTT estimator

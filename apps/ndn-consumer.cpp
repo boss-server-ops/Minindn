@@ -195,6 +195,10 @@ void Consumer::StopApplication() // Called at time specified by Stop
 {
     spdlog::info("Stopping Consumer application");
     // ps: deleted cancel event
+    if (m_sendEvent.joinable())
+    {
+        m_sendEvent.join();
+    }
     App::StopApplication();
 }
 
@@ -471,6 +475,22 @@ void Consumer::OnTimeout(const ndn::Interest &interest)
 void Consumer::SetRetxTimer(std::chrono::milliseconds retxTimer)
 {
     // ps:deleted schedule event
+    m_retxTimer = retxTimer;
+
+    // Cancel the existing retransmission event if it's running
+    if (m_retxEvent.joinable())
+    {
+        m_retxEvent.join();
+    }
+
+    // Log the next interval to check timeout
+    spdlog::debug("Next interval to check timeout is: {} ms", m_retxTimer.count());
+
+    // Schedule timeout check event
+    m_retxEvent = std::thread([this]()
+                              {
+        std::this_thread::sleep_for(m_retxTimer);
+        CheckRetxTimeout(); });
 }
 
 std::chrono::milliseconds Consumer::GetRetxTimer() const
@@ -481,6 +501,52 @@ std::chrono::milliseconds Consumer::GetRetxTimer() const
 void Consumer::CheckRetxTimeout()
 {
     // ps:deleted schedule event and have different ontimeout
+    auto now = std::chrono::steady_clock::now();
+
+    for (auto it = m_timeoutCheck.begin(); it != m_timeoutCheck.end();)
+    {
+        // Parse the string and extract the first segment, e.g. "agg0", then find out its round
+        std::string type = std::make_shared<ndn::Name>(it->first)->get(-2).toUri();
+
+        // For two types of data, check timeout respectively
+        if (type == "initialization")
+        {
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) - it->second > (3 * m_retxTimer))
+            {
+                std::string name = it->first;
+                it = m_timeoutCheck.erase(it);
+                OnTimeout(ndn::Interest(name));
+            }
+            else
+            {
+                ++it;
+            }
+        }
+        else if (type == "data")
+        {
+            std::string name = it->first;
+            std::string seg0 = std::make_shared<ndn::Name>(name)->get(0).toUri();
+            int roundIndex = findRoundIndex(seg0);
+
+            if (std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) - it->second > m_timeoutThreshold[roundIndex])
+            {
+                std::string name = it->first;
+                it = m_timeoutCheck.erase(it);
+                numTimeout[roundIndex]++;
+                OnTimeout(ndn::Interest(name));
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+
+    // Reschedule the next timeout check event
+    m_retxEvent = std::thread([this]()
+                              {
+        std::this_thread::sleep_for(m_retxTimer);
+        CheckRetxTimeout(); });
 }
 
 std::chrono::milliseconds Consumer::RTOMeasurement(int64_t resTime, int roundIndex)
