@@ -1,0 +1,50 @@
+router
+
+pro0
+pro1
+pro2
+pro3
+pro4
+con0
+forwarder0
+forwarder1
+forwarder2
+forwarder3
+forwarder4
+forwarder5
+forwarder6
+agg0
+agg1
+agg2
+agg3
+agg4
+
+link
+
+pro0       forwarder0       500Mbps       1       1ms       5000
+pro1       forwarder0       500Mbps       1       1ms       5000
+pro2       forwarder0       500Mbps       1       1ms       5000
+pro3       forwarder0       500Mbps       1       1ms       5000
+pro4       forwarder0       500Mbps       1       1ms       5000
+con0       forwarder1       500Mbps       1       1ms       5000
+forwarder0       agg0       1Gbps       2       2ms       5000
+agg0       forwarder2       1Gbps       2       2ms       5000
+forwarder0       agg1       1Gbps       2       2ms       5000
+agg1       forwarder3       1Gbps       2       2ms       5000
+forwarder0       agg2       1Gbps       2       2ms       5000
+agg2       forwarder4       1Gbps       2       2ms       5000
+forwarder0       agg3       1Gbps       2       2ms       5000
+agg3       forwarder5       1Gbps       2       2ms       5000
+forwarder0       agg4       1Gbps       2       2ms       5000
+agg4       forwarder6       1Gbps       2       2ms       5000
+forwarder1       forwarder2       2Gbps       3       1ms       5000
+forwarder2       forwarder3       2Gbps       3       1ms       5000
+forwarder2       forwarder4       2Gbps       3       1ms       5000
+forwarder2       forwarder5       2Gbps       3       1ms       5000
+forwarder2       forwarder6       2Gbps       3       1ms       5000
+forwarder3       forwarder4       2Gbps       3       1ms       5000
+forwarder3       forwarder5       2Gbps       3       1ms       5000
+forwarder3       forwarder6       2Gbps       3       1ms       5000
+forwarder4       forwarder5       2Gbps       3       1ms       5000
+forwarder4       forwarder6       2Gbps       3       1ms       5000
+forwarder5       forwarder6       2Gbps       3       1ms       5000

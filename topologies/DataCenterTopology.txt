@@ -1,0 +1,316 @@
+router
+
+con0
+pro0
+pro1
+pro2
+pro3
+pro4
+pro5
+pro6
+pro7
+pro8
+pro9
+pro10
+pro11
+pro12
+pro13
+pro14
+pro15
+pro16
+pro17
+pro18
+pro19
+pro20
+pro21
+pro22
+pro23
+pro24
+pro25
+pro26
+pro27
+pro28
+pro29
+pro30
+pro31
+pro32
+pro33
+pro34
+pro35
+pro36
+pro37
+pro38
+pro39
+pro40
+pro41
+pro42
+pro43
+pro44
+pro45
+pro46
+pro47
+pro48
+pro49
+forwarder0
+forwarder1
+forwarder2
+forwarder3
+forwarder4
+forwarder5
+agg0
+agg1
+agg2
+agg3
+agg4
+agg5
+agg6
+agg7
+agg8
+agg9
+agg10
+agg11
+agg12
+agg13
+agg14
+agg15
+agg16
+agg17
+agg18
+agg19
+forwarder6
+forwarder7
+forwarder8
+
+link
+
+pro0       forwarder0       100Mbps       1       2ms       50
+pro1       forwarder0       100Mbps       1       2ms       50
+pro2       forwarder0       100Mbps       1       2ms       50
+pro3       forwarder0       100Mbps       1       2ms       50
+pro4       forwarder0       100Mbps       1       2ms       50
+pro5       forwarder0       100Mbps       1       2ms       50
+pro6       forwarder0       100Mbps       1       2ms       50
+pro7       forwarder0       100Mbps       1       2ms       50
+pro8       forwarder0       100Mbps       1       2ms       50
+pro9       forwarder0       100Mbps       1       2ms       50
+pro10       forwarder1       100Mbps       1       2ms       50
+pro11       forwarder1       100Mbps       1       2ms       50
+pro12       forwarder1       100Mbps       1       2ms       50
+pro13       forwarder1       100Mbps       1       2ms       50
+pro14       forwarder1       100Mbps       1       2ms       50
+pro15       forwarder1       100Mbps       1       2ms       50
+pro16       forwarder1       100Mbps       1       2ms       50
+pro17       forwarder1       100Mbps       1       2ms       50
+pro18       forwarder1       100Mbps       1       2ms       50
+pro19       forwarder1       100Mbps       1       2ms       50
+pro20       forwarder2       100Mbps       1       2ms       50
+pro21       forwarder2       100Mbps       1       2ms       50
+pro22       forwarder2       100Mbps       1       2ms       50
+pro23       forwarder2       100Mbps       1       2ms       50
+pro24       forwarder2       100Mbps       1       2ms       50
+pro25       forwarder2       100Mbps       1       2ms       50
+pro26       forwarder2       100Mbps       1       2ms       50
+pro27       forwarder2       100Mbps       1       2ms       50
+pro28       forwarder2       100Mbps       1       2ms       50
+pro29       forwarder2       100Mbps       1       2ms       50
+pro30       forwarder3       100Mbps       1       2ms       50
+pro31       forwarder3       100Mbps       1       2ms       50
+pro32       forwarder3       100Mbps       1       2ms       50
+pro33       forwarder3       100Mbps       1       2ms       50
+pro34       forwarder3       100Mbps       1       2ms       50
+pro35       forwarder3       100Mbps       1       2ms       50
+pro36       forwarder3       100Mbps       1       2ms       50
+pro37       forwarder3       100Mbps       1       2ms       50
+pro38       forwarder3       100Mbps       1       2ms       50
+pro39       forwarder3       100Mbps       1       2ms       50
+pro40       forwarder4       100Mbps       1       2ms       50
+pro41       forwarder4       100Mbps       1       2ms       50
+pro42       forwarder4       100Mbps       1       2ms       50
+pro43       forwarder4       100Mbps       1       2ms       50
+pro44       forwarder4       100Mbps       1       2ms       50
+pro45       forwarder4       100Mbps       1       2ms       50
+pro46       forwarder4       100Mbps       1       2ms       50
+pro47       forwarder4       100Mbps       1       2ms       50
+pro48       forwarder4       100Mbps       1       2ms       50
+pro49       forwarder4       100Mbps       1       2ms       50
+con0       forwarder0       100Mbps       1       2ms       50
+forwarder0       agg0       100Mbps       1       2ms       50
+forwarder0       agg1       100Mbps       1       2ms       50
+forwarder0       agg2       100Mbps       1       2ms       50
+forwarder0       agg3       100Mbps       1       2ms       50
+forwarder0       agg4       100Mbps       1       2ms       50
+forwarder0       agg5       100Mbps       1       2ms       50
+forwarder0       agg6       100Mbps       1       2ms       50
+forwarder0       agg7       100Mbps       1       2ms       50
+forwarder0       agg8       100Mbps       1       2ms       50
+forwarder0       agg9       100Mbps       1       2ms       50
+forwarder0       agg10       100Mbps       1       2ms       50
+forwarder0       agg11       100Mbps       1       2ms       50
+forwarder0       agg12       100Mbps       1       2ms       50
+forwarder0       agg13       100Mbps       1       2ms       50
+forwarder0       agg14       100Mbps       1       2ms       50
+forwarder0       agg15       100Mbps       1       2ms       50
+forwarder0       agg16       100Mbps       1       2ms       50
+forwarder0       agg17       100Mbps       1       2ms       50
+forwarder0       agg18       100Mbps       1       2ms       50
+forwarder0       agg19       100Mbps       1       2ms       50
+forwarder1       agg0       100Mbps       1       2ms       50
+forwarder1       agg1       100Mbps       1       2ms       50
+forwarder1       agg2       100Mbps       1       2ms       50
+forwarder1       agg3       100Mbps       1       2ms       50
+forwarder1       agg4       100Mbps       1       2ms       50
+forwarder1       agg5       100Mbps       1       2ms       50
+forwarder1       agg6       100Mbps       1       2ms       50
+forwarder1       agg7       100Mbps       1       2ms       50
+forwarder1       agg8       100Mbps       1       2ms       50
+forwarder1       agg9       100Mbps       1       2ms       50
+forwarder1       agg10       100Mbps       1       2ms       50
+forwarder1       agg11       100Mbps       1       2ms       50
+forwarder1       agg12       100Mbps       1       2ms       50
+forwarder1       agg13       100Mbps       1       2ms       50
+forwarder1       agg14       100Mbps       1       2ms       50
+forwarder1       agg15       100Mbps       1       2ms       50
+forwarder1       agg16       100Mbps       1       2ms       50
+forwarder1       agg17       100Mbps       1       2ms       50
+forwarder1       agg18       100Mbps       1       2ms       50
+forwarder1       agg19       100Mbps       1       2ms       50
+forwarder2       agg0       100Mbps       1       2ms       50
+forwarder2       agg1       100Mbps       1       2ms       50
+forwarder2       agg2       100Mbps       1       2ms       50
+forwarder2       agg3       100Mbps       1       2ms       50
+forwarder2       agg4       100Mbps       1       2ms       50
+forwarder2       agg5       100Mbps       1       2ms       50
+forwarder2       agg6       100Mbps       1       2ms       50
+forwarder2       agg7       100Mbps       1       2ms       50
+forwarder2       agg8       100Mbps       1       2ms       50
+forwarder2       agg9       100Mbps       1       2ms       50
+forwarder2       agg10       100Mbps       1       2ms       50
+forwarder2       agg11       100Mbps       1       2ms       50
+forwarder2       agg12       100Mbps       1       2ms       50
+forwarder2       agg13       100Mbps       1       2ms       50
+forwarder2       agg14       100Mbps       1       2ms       50
+forwarder2       agg15       100Mbps       1       2ms       50
+forwarder2       agg16       100Mbps       1       2ms       50
+forwarder2       agg17       100Mbps       1       2ms       50
+forwarder2       agg18       100Mbps       1       2ms       50
+forwarder2       agg19       100Mbps       1       2ms       50
+forwarder3       agg0       100Mbps       1       2ms       50
+forwarder3       agg1       100Mbps       1       2ms       50
+forwarder3       agg2       100Mbps       1       2ms       50
+forwarder3       agg3       100Mbps       1       2ms       50
+forwarder3       agg4       100Mbps       1       2ms       50
+forwarder3       agg5       100Mbps       1       2ms       50
+forwarder3       agg6       100Mbps       1       2ms       50
+forwarder3       agg7       100Mbps       1       2ms       50
+forwarder3       agg8       100Mbps       1       2ms       50
+forwarder3       agg9       100Mbps       1       2ms       50
+forwarder3       agg10       100Mbps       1       2ms       50
+forwarder3       agg11       100Mbps       1       2ms       50
+forwarder3       agg12       100Mbps       1       2ms       50
+forwarder3       agg13       100Mbps       1       2ms       50
+forwarder3       agg14       100Mbps       1       2ms       50
+forwarder3       agg15       100Mbps       1       2ms       50
+forwarder3       agg16       100Mbps       1       2ms       50
+forwarder3       agg17       100Mbps       1       2ms       50
+forwarder3       agg18       100Mbps       1       2ms       50
+forwarder3       agg19       100Mbps       1       2ms       50
+forwarder4       agg0       100Mbps       1       2ms       50
+forwarder4       agg1       100Mbps       1       2ms       50
+forwarder4       agg2       100Mbps       1       2ms       50
+forwarder4       agg3       100Mbps       1       2ms       50
+forwarder4       agg4       100Mbps       1       2ms       50
+forwarder4       agg5       100Mbps       1       2ms       50
+forwarder4       agg6       100Mbps       1       2ms       50
+forwarder4       agg7       100Mbps       1       2ms       50
+forwarder4       agg8       100Mbps       1       2ms       50
+forwarder4       agg9       100Mbps       1       2ms       50
+forwarder4       agg10       100Mbps       1       2ms       50
+forwarder4       agg11       100Mbps       1       2ms       50
+forwarder4       agg12       100Mbps       1       2ms       50
+forwarder4       agg13       100Mbps       1       2ms       50
+forwarder4       agg14       100Mbps       1       2ms       50
+forwarder4       agg15       100Mbps       1       2ms       50
+forwarder4       agg16       100Mbps       1       2ms       50
+forwarder4       agg17       100Mbps       1       2ms       50
+forwarder4       agg18       100Mbps       1       2ms       50
+forwarder4       agg19       100Mbps       1       2ms       50
+forwarder5       agg0       100Mbps       1       2ms       50
+forwarder5       agg1       100Mbps       1       2ms       50
+forwarder5       agg2       100Mbps       1       2ms       50
+forwarder5       agg3       100Mbps       1       2ms       50
+forwarder5       agg4       100Mbps       1       2ms       50
+forwarder5       agg5       100Mbps       1       2ms       50
+forwarder5       agg6       100Mbps       1       2ms       50
+forwarder5       agg7       100Mbps       1       2ms       50
+forwarder5       agg8       100Mbps       1       2ms       50
+forwarder5       agg9       100Mbps       1       2ms       50
+forwarder5       agg10       100Mbps       1       2ms       50
+forwarder5       agg11       100Mbps       1       2ms       50
+forwarder5       agg12       100Mbps       1       2ms       50
+forwarder5       agg13       100Mbps       1       2ms       50
+forwarder5       agg14       100Mbps       1       2ms       50
+forwarder5       agg15       100Mbps       1       2ms       50
+forwarder5       agg16       100Mbps       1       2ms       50
+forwarder5       agg17       100Mbps       1       2ms       50
+forwarder5       agg18       100Mbps       1       2ms       50
+forwarder5       agg19       100Mbps       1       2ms       50
+forwarder6       agg0       100Mbps       1       2ms       50
+forwarder6       agg1       100Mbps       1       2ms       50
+forwarder6       agg2       100Mbps       1       2ms       50
+forwarder6       agg3       100Mbps       1       2ms       50
+forwarder6       agg4       100Mbps       1       2ms       50
+forwarder6       agg5       100Mbps       1       2ms       50
+forwarder6       agg6       100Mbps       1       2ms       50
+forwarder6       agg7       100Mbps       1       2ms       50
+forwarder6       agg8       100Mbps       1       2ms       50
+forwarder6       agg9       100Mbps       1       2ms       50
+forwarder6       agg10       100Mbps       1       2ms       50
+forwarder6       agg11       100Mbps       1       2ms       50
+forwarder6       agg12       100Mbps       1       2ms       50
+forwarder6       agg13       100Mbps       1       2ms       50
+forwarder6       agg14       100Mbps       1       2ms       50
+forwarder6       agg15       100Mbps       1       2ms       50
+forwarder6       agg16       100Mbps       1       2ms       50
+forwarder6       agg17       100Mbps       1       2ms       50
+forwarder6       agg18       100Mbps       1       2ms       50
+forwarder6       agg19       100Mbps       1       2ms       50
+forwarder7       agg0       100Mbps       1       2ms       50
+forwarder7       agg1       100Mbps       1       2ms       50
+forwarder7       agg2       100Mbps       1       2ms       50
+forwarder7       agg3       100Mbps       1       2ms       50
+forwarder7       agg4       100Mbps       1       2ms       50
+forwarder7       agg5       100Mbps       1       2ms       50
+forwarder7       agg6       100Mbps       1       2ms       50
+forwarder7       agg7       100Mbps       1       2ms       50
+forwarder7       agg8       100Mbps       1       2ms       50
+forwarder7       agg9       100Mbps       1       2ms       50
+forwarder7       agg10       100Mbps       1       2ms       50
+forwarder7       agg11       100Mbps       1       2ms       50
+forwarder7       agg12       100Mbps       1       2ms       50
+forwarder7       agg13       100Mbps       1       2ms       50
+forwarder7       agg14       100Mbps       1       2ms       50
+forwarder7       agg15       100Mbps       1       2ms       50
+forwarder7       agg16       100Mbps       1       2ms       50
+forwarder7       agg17       100Mbps       1       2ms       50
+forwarder7       agg18       100Mbps       1       2ms       50
+forwarder7       agg19       100Mbps       1       2ms       50
+forwarder8       agg0       100Mbps       1       2ms       50
+forwarder8       agg1       100Mbps       1       2ms       50
+forwarder8       agg2       100Mbps       1       2ms       50
+forwarder8       agg3       100Mbps       1       2ms       50
+forwarder8       agg4       100Mbps       1       2ms       50
+forwarder8       agg5       100Mbps       1       2ms       50
+forwarder8       agg6       100Mbps       1       2ms       50
+forwarder8       agg7       100Mbps       1       2ms       50
+forwarder8       agg8       100Mbps       1       2ms       50
+forwarder8       agg9       100Mbps       1       2ms       50
+forwarder8       agg10       100Mbps       1       2ms       50
+forwarder8       agg11       100Mbps       1       2ms       50
+forwarder8       agg12       100Mbps       1       2ms       50
+forwarder8       agg13       100Mbps       1       2ms       50
+forwarder8       agg14       100Mbps       1       2ms       50
+forwarder8       agg15       100Mbps       1       2ms       50
+forwarder8       agg16       100Mbps       1       2ms       50
+forwarder8       agg17       100Mbps       1       2ms       50
+forwarder8       agg18       100Mbps       1       2ms       50
+forwarder8       agg19       100Mbps       1       2ms       50
