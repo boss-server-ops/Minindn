@@ -60,7 +60,7 @@ void Producer::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest
 
     // use KeyChain to sign Data packet
     m_keyChain.sign(*data);
-
+    data->wireEncode();
     // send Data packet
     m_face->put(*data);
 }
