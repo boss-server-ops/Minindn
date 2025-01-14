@@ -7,6 +7,7 @@
 #include <ndn-cxx/util/random.hpp>
 #include <ndn-cxx/util/rtt-estimator.hpp>
 #include <ndn-cxx/util/time.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <memory>
@@ -21,6 +22,7 @@
 #include <chrono>
 #include "ndn-app.hpp"
 #include "ModelData.hpp"
+#include "sliding_window.hpp"
 
 class Consumer : public App
 {
@@ -72,9 +74,10 @@ public:
     void TreeBroadcast();
     void ConstructAggregationTree();
 
-    void SendPacket();
+    void SendPacket(std::string prefix);
     void InterestGenerator();
 
+    bool InterestSplitting();
     /**
      * @brief Method to aggregate data
      * @param data The received ModelData
@@ -87,7 +90,7 @@ public:
      * @param seq The sequence number
      * @return A vector of mean values
      */
-    std::vector<float> getMean(const uint32_t &seq);
+    std::vector<double> getMean(const uint32_t &seq);
 
     /**
      * @brief Method to calculate the sum of response times
@@ -114,47 +117,85 @@ public:
     int64_t GetAggregateTimeAverage();
 
     /**
-     * @brief Method to measure the RTT threshold for congestion control
-     * @param responseTime The response time
-     * @param roundIndex The round index
+     * @brief Utility function to get the size of the data queue for a given prefix
+     * @param prefix The prefix for which to get the data queue size
+     * @return The size of the data queue
      */
-    void RTTThresholdMeasure(int64_t responseTime, int roundIndex);
+    double getDataQueueSize(std::string prefix);
 
     /**
-     * @brief Method to measure RTT for each round based on response time
+     * @brief Measure the Round-Trip Time (RTT) for a given prefix
+     * @param prefix The prefix for which to measure RTT
      * @param resTime The response time
-     * @param roundIndex The round index
-     * @return The measured RTT
      */
-    std::chrono::milliseconds RTOMeasurement(int64_t resTime, int roundIndex);
+    void RTTMeasure(std::string prefix, int64_t resTime);
+
+    /**
+     * @brief Get the data rate for a given prefix
+     * @param prefix The prefix for which to get the data rate
+     * @return The data rate
+     */
+    double GetDataRate(std::string prefix);
+
+    /**
+     * @brief Estimate the bandwidth for a given prefix based on the QSF (Queue Size Factor) upstream
+     * @param prefix The prefix for which to estimate bandwidth
+     * @param qsfUpstream The QSF upstream value
+     */
+    void BandwidthEstimation(std::string prefix, double qsfUpstream);
+
+    /**
+     * @brief Update the rate limit for a given prefix
+     * @param prefix The prefix for which to update the rate limit
+     */
+    void RateLimitUpdate(std::string prefix);
+
+    /**
+     * @brief Record the QSF (Queue Size Factor) for a given prefix
+     * @param prefix The prefix for which to record the QSF
+     * @param qsf The QSF value
+     */
+    void QsfRecorder(std::string prefix, double qsf);
+
+    /**
+     * @brief Detect congestion for a given prefix based on the response time
+     * @param prefix The prefix for which to detect congestion
+     * @param responseTime The response time
+     * @return True if congestion is detected, false otherwise
+     */
+    bool CongestionDetection(std::string prefix, int64_t responseTime);
+
+    /**
+     * @brief Method to measure the Round-Trip Time (RTT) for a given prefix based on response time
+     * @param resTime The response time
+     * @param prefix The prefix for which to measure RTT
+     * @return The measured RTT in milliseconds
+     */
+    std::chrono::milliseconds RTOMeasure(int64_t resTime, std::string prefix);
 
     /**
      * @brief Method to record RTO results in files for testing purposes
      */
-    void RTORecorder();
+    void RTORecorder(std::string prefix);
+
+    // waiting for comments
+    void InFlightRecorder(std::string prefix);
 
     /**
-     * @brief Method to record RTT of each packet and other relevant info
-     * @param responseTime The response time
+     * @brief Method to record response time for a given prefix and sequence number
+     * @param roundIndex The round index
+     * @param prefix The prefix for which to record response time
      * @param seq The sequence number
-     * @param ECN The ECN flag
-     * @param threshold_measure The measured threshold
-     * @param threshold_actual The actual threshold
+     * @param responseTime The response time in milliseconds
      */
-    void ResponseTimeRecorder(std::chrono::milliseconds responseTime, uint32_t seq, bool ECN, int64_t threshold_measure, int64_t threshold_actual);
+    void ResponseTimeRecorder(int roundIndex, std::string prefix, uint32_t seq, std::chrono::milliseconds responseTime);
 
     /**
-     * @brief Method to record aggregate times
-     * @param aggregateTime The aggregate time
+     * @brief Method to record aggregate time for a given sequence number
+     * @param aggregateTime The aggregate time in milliseconds
+     * @param seq The sequence number
      */
-    void AggregateTimeRecorder(std::chrono::milliseconds aggregateTime);
-
-    /**
-     * @brief Method to record throughput
-     * @param interestThroughput The interest throughput
-     * @param dataThroughput The data throughput
-     */
-    void ThroughputRecorder(int interestThroughput, int dataThroughput);
+    void AggregateTimeRecorder(std::chrono::milliseconds aggregateTime, uint32_t seq);
 
     /**
      * @brief Method to initialize the log file
@@ -162,11 +203,47 @@ public:
     void InitializeLogFile();
 
     /**
-     * @brief Method to check if the window can be decreased
-     * @param threshold The threshold value
-     * @return True if the window can be decreased, false otherwise
+     * @brief Method to initialize parameters
      */
-    bool CanDecreaseWindow(int64_t threshold);
+    void InitializeParameter();
+
+    /**
+     * @brief Method to check if the window size can be decreased based on a threshold
+     * @param prefix The prefix for which to check the window size
+     * @param threshold The threshold value
+     * @return True if the window size can be decreased, false otherwise
+     */
+    bool CanDecreaseWindow(std::string prefix, int64_t threshold);
+
+    /**
+     * @brief Method to record throughput information
+     * @param interestThroughput The throughput of interests
+     * @param dataThroughput The throughput of data
+     * @param start_simulation The start time of the simulation
+     * @param start_throughput The start time of the throughput measurement
+     */
+    void ThroughputRecorder(int interestThroughput, int dataThroughput, std::chrono::milliseconds start_simulation, std::chrono::milliseconds start_throughput);
+
+    /**
+     * @brief Method to record aggregate tree information
+     */
+    void AggTreeRecorder();
+
+    /**
+     * @brief Method to record the results of the simulation
+     * @param iteNum The iteration number
+     * @param timeoutNum The number of timeouts
+     * @param aveAggTime The average aggregation time
+     * @param totalTime The total time of the simulation
+     */
+    void ResultRecorder(uint32_t iteNum, int timeoutNum, int64_t aveAggTime, int64_t totalTime);
+
+    /**
+     * @brief Method to record the queue size for a given prefix
+     * @param prefix The prefix for which to record the queue size
+     * @param queueSize The size of the queue
+     */
+    void QueueRecorder(std::string prefix, double queueSize);
 
     /**
      * @brief Override the function in App class to return leaf nodes
@@ -194,7 +271,7 @@ protected:
 
     virtual void StopApplication() override;
 
-    virtual void ScheduleNextPacket() = 0;
+    virtual void ScheduleNextPacket(std::string prefix) = 0;
 
     virtual void SendInterest(std::shared_ptr<ndn::Name> newName);
 
@@ -217,69 +294,133 @@ protected:
 
 protected:
     // Topology file name
-    std::string filename = "minindn/topologies/DataCenterTopology.txt";
+    std::string filename;
 
-    // Testing log file
-    // ToDo: Update logging for multiple rounds
-    std::string RTO_recorder = folderPath + "/consumer_RTO.txt";                       //'Time', 'RTO'
-    std::string responseTime_recorder = folderPath + "/consumer_RTT.txt";              //'Time', 'seq', ‘ECN’， ‘RTT threshold’，'RTT', 'isWindowDecreaseSuppressed'
-    std::string aggregateTime_recorder = folderPath + "/consumer_aggregationTime.txt"; //'Time', 'aggTime'
-    // std::string throughput_recorder = folderPath + "/throughput.txt";
-    int suspiciousPacketCount; // When timeout is triggered, add one
+    // Log path
+    std::string folderPath = "logs/con";
+    std::map<std::string, std::string> RTO_recorder;
+    std::map<std::string, std::string> responseTime_recorder; // Format: 'Time', 'seq', 'RTT', ‘ECN’, 'isWindowDecreaseSuppressed'
+    std::map<std::string, std::string> windowRecorder;        // Format: 'Time', 'cwnd', 'cwnd threshold' (when cwnd is larger than the threshold, cwnd increase will be suppressed)
+    std::map<std::string, std::string> inFlight_recorder;     // Format: 'Time', 'inFlight'
+    std::map<std::string, std::string> qsf_recorder;          //? qsf
+    std::map<std::string, std::string> qsNew_recorder;        //! Updated queue size CC
+    std::string aggregateTime_recorder;                       // Format: 'Time', 'aggTime'
+    int suspiciousPacketCount;                                // When timeout is triggered, add one
+    int dataOverflow;                                         // Record the number of data overflow
+    int nackCount;                                            // Record the number of NACK
+    int suspiciousPacketCount;                                // When timeout is triggered, add one
 
     // Update when WindowDecrease() is called every time, used for CWA algorithm
-    std::chrono::milliseconds lastWindowDecreaseTime;
+    std::map<std::string, std::chrono::milliseconds> lastWindowDecreaseTime;
     bool isWindowDecreaseSuppressed;
 
-    // Local throughput measurement
+    // Throughput measurement
     int totalInterestThroughput;
     int totalDataThroughput;
-    int numChild; // The number of child nodes of consumer, used to specify the actual number of links for bandwidth utilization
 
-    // Congestion/rate control
-    std::vector<std::vector<std::string>> globalTreeRound;
-    std::map<int, std::vector<int64_t>> RTT_threshold_vec; // Each mapping represents one round (if there're more than one round)
-    std::map<int, int64_t> RTT_threshold;                  // Actual threshold used to detect congestion
-    std::map<int, int64_t> RTT_measurement;                // The estimated RTT value using EWMA
-    std::map<int, int> RTT_count;                          // How many RTT packets this node has received, used to estimate how many iterations have passed
+    std::chrono::milliseconds startSimulation;
+    std::chrono::milliseconds stopSimulation;
+    std::chrono::milliseconds startThroughputMeasurement;
+    bool throughputStable; // Start record the throughput after first reach congestion, consider the point as the start of stable throughput
 
-    // Global sequence number
+    // General window design
+    uint32_t m_initialWindow;
+    uint32_t m_minWindow;
+    std::map<std::string, double> m_window;
+    std::map<std::string, uint32_t> m_inFlight;
+
+    // AIMD design
+    std::map<std::string, double> m_ssthresh;
+    bool m_useCwa;
+    uint32_t m_highData;
+    double m_recPoint;
+    double m_alpha; // Timeout decrease factor
+    double m_beta;  // Local congestion decrease factor
+    double m_gamma; // Remote congestion decrease factor
+    double m_addRttSuppress;
+    bool m_reactToCongestionMarks;
+
+    // CUBIC
+    static constexpr double m_cubic_c = 0.4;
+    static constexpr double m_cubicBeta = 0.7;
+    bool m_useCubicFastConv;
+    std::map<std::string, double> m_cubicWmax;
+    std::map<std::string, double> m_cubicLastWmax;
+
+    // TODO: debugging
+    // Interest sending rate pacing
+    std::map<std::string, ndn::scheduler::EventId> m_scheduleEvent;
+    std::map<std::string, ndn::scheduler::EventId> m_sendEvent;
+    bool isRTTEstimated;
+    int m_initPace;
+
+    //! QSF
+    int m_qsfQueueThreshold;
+    double m_qsfMDFactor;
+    double m_qsfRPFactor;
+    int m_qsfTimeDuration;
+    double m_qsfInitRate; // Unit: pgks/ms
+    std::map<std::string, bool> firstData;
+    std::map<std::string, SlidingWindow<double>> m_qsfSlidingWindows;
+    std::map<std::string, ndn::scheduler::EventId> m_rateEvent;
+    std::map<std::string, double> m_rateLimit;         // Unit: pkgs/ms
+    std::map<std::string, double> m_estimatedBW;       // Unit: pkgs/ms
+    std::map<std::string, int64_t> RTT_estimation_qsf; // Unit: ms
+
+    // Global flow map
+    std::vector<std::vector<std::string>> globalTreeRound; // First dimension: round. Second dimension: next-tier leaves, initialized in ConstructAggregationTree()
+    int linkCount;
+
+    //! Start here, implement per-flow design, change round into per-flow
+    std::map<std::string, int> RTT_count; // How many RTT packets this node has received, used to estimate how many iterations have passed
+
+    //? The following is new design for windowed average RTT
+    std::map<std::string, std::deque<int64_t>> RTT_windowed_queue; // Store windowed average RTT for each flow
+    std::map<std::string, int64_t> RTT_historical_estimation;      // Historical RTT estimation
+    int m_smooth_window_size;                                      // Window size for RTT windowed average
+
+    //* initSeq is only used once, when broadcasting the aggregation tree
+    uint32_t initSeq;
+
+    // Track seq of each flow when sending interests
+    //? Track the global iteration when interest splitting
+
     uint32_t globalSeq;
-    int globalRound;
 
-    // Interest queue
-    std::queue<std::tuple<uint32_t, bool, std::shared_ptr<ndn::Name>>> interestQueue; // tuple: iteration, round, name
+    //? Track the latest iteration has been sent. Function - determine whether it's the correct time to start aggregation time
+    std::map<std::string, uint32_t> SeqMap; // Key: flow, Value: seq
+    //? Keep a interest queue for each flow
+    std::map<std::string, std::deque<uint32_t>> interestQueue; // Key: flow, Value: queue
 
-    // Get producer list
+    // Get producer list, which are used to generate new interests
     std::string proList;
 
     // Constructed aggregation Tree
     std::vector<std::map<std::string, std::vector<std::string>>> aggregationTree; // Entire tree (including main tree and sub-trees)
                                                                                   // Broadcast aggregation tree
     bool broadcastSync;
-    std::vector<std::string> broadcastList; // Elements within this vector need to be broadcasted
+    std::set<std::string> broadcastList; // Elements within the set need to be broadcasted, all elements are unique
 
-    // Aggregation synchronization
-    std::map<uint32_t, std::vector<std::vector<std::string>>> map_agg_oldSeq_newName; // Manage names for round
-    std::map<uint32_t, std::vector<std::string>> m_agg_newDataName;                   // Manage names for entire iteration
+    std::map<uint32_t, std::vector<std::string>> map_agg_oldSeq_newName; // Manage names for entire iteration
+    std::map<uint32_t, bool> m_agg_finished;                             // Manage whether aggregation is finished for each iteration
 
-    // Used inside InterestGenerator function
-    std::map<int, std::vector<std::string>> map_round_nameSec1_3;
-    std::vector<std::string> vec_iteration;
-    std::vector<std::vector<std::string>> vec_round;
+    // Used inside InterestGenerator
+    std::map<std::string, std::string> NameSec0_2; // Key: flow, Value: first three segments of interest name, e.g. "/agg0/pro0.pro1/data"
+    std::vector<std::string> vec_iteration;        // Store upstream nodes' name
 
     // Timeout check/ RTO measurement
     std::map<std::string, std::chrono::milliseconds> m_timeoutCheck;
-    std::map<int, std::chrono::milliseconds> m_timeoutThreshold;
-    std::map<int, std::chrono::milliseconds> RTO_Timer;
-    std::map<int, int64_t> SRTT;
-    std::map<int, int64_t> RTTVAR;
-    std::map<int, bool> initRTO;
-    std::map<int, int> numTimeout; // Count the number of timeout, for testing purpose
+    std::map<std::string, std::chrono::milliseconds> RTO_threshold;
+    std::map<std::string, int64_t> SRTT;
+    std::map<std::string, int64_t> RTTVAR;
+    std::map<std::string, bool> initRTO;
+    // TODO: Count the number of timeout, testing purpose only
+    std::map<std::string, int> numTimeout;
 
     // Designed for actual aggregation operations
-    std::map<uint32_t, std::vector<float>> sumParameters;
-    std::map<uint32_t, std::vector<float>> aggregationResult;
+    std::map<uint32_t, bool> partialAggResult;
+    std::map<uint32_t, std::vector<double>> sumParameters;
+    std::map<uint32_t, std::vector<double>> aggregationResult;
     int producerCount;
 
     // Congestion signal
@@ -287,7 +428,7 @@ protected:
     bool ECNRemote;
 
     // defined for response time
-    std::map<std::string, std::chrono::milliseconds> startTime;
+    std::map<std::string, std::chrono::milliseconds> rttStartTime;
     std::map<std::string, std::chrono::milliseconds> responseTime;
     int64_t total_response_time;
     int round;
@@ -299,22 +440,24 @@ protected:
     int iterationCount;
 
     // New defined attribute variables
+    std::string m_topologyType;
     std::string m_interestName; // Consumer's interest prefix
     std::string m_nodeprefix;   // Consumer's node prefix
     uint32_t m_iteNum;          // The number of iterations
-    int m_interestQueue;        // Queue size
+    int m_interestQueue;        // Interest queue size
+    int m_dataQueue;            // Data queue size
+    int m_dataSize;             // Data size
     int m_constraint;           // Constraint of each sub-tree
     double m_EWMAFactor;        // Factor used in EWMA, recommended value is between 0.1 and 0.3
     double m_thresholdFactor;   // Factor to compute "RTT_threshold", i.e. "RTT_threshold = Threshold_factor * RTT_measurement"
-
+    bool m_useWIS;
     // use m_rand and m_uniformDist to replace the m_rand in ndnSIM
     std::mt19937 m_rand;                            // random number generator
     std::uniform_real_distribution<> m_uniformDist; // average distribution
     uint32_t m_seq;                                 ///< @brief currently requested sequence number
     uint32_t m_seqMax;                              ///< @brief maximum number of sequence number
-    std::thread m_sendEvent;                        ///< @brief EventId of pending "send packet" event
     std::chrono::milliseconds m_retxTimer;          ///< @brief Currently estimated retransmission timer
-    std::thread m_retxEvent;                        ///< @brief Event to check whether or not retransmission should be performed
+    ndn::scheduler::EventId m_retxEvent;            ///< @brief Event to check whether or not retransmission should be performed
 
     // change the type of the m_rtt of the ndnSIM
     std::unique_ptr<ndn::util::RttEstimator> m_rtt; ///< @brief RTT estimator
