@@ -44,12 +44,12 @@ void Producer::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest
 
     // generate new data content
     ModelData modelData;
-    std::default_random_engine generator(std::random_device{}());    // reate random generator
-    std::uniform_real_distribution<float> distribution(0.0f, 10.0f); // define range (0.0, 10.0)
+    std::default_random_engine generator(std::random_device{}());   // reate random generator
+    std::uniform_real_distribution<double> distribution(0.0, 10.0); // define range (0.0, 10.0)
     modelData.parameters.clear();
-    for (int i = 0; i < 300; ++i)
+    for (int i = 0; i < m_dataSize; ++i)
     {
-        modelData.parameters.push_back(distribution(generator));
+        modelData.parameters.push_back(distribution(generator)); // generate random double range (0.0, 10.0)
     }
 
     std::vector<uint8_t> buffer;
@@ -60,7 +60,6 @@ void Producer::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest
 
     // use KeyChain to sign Data packet
     m_keyChain.sign(*data);
-    data->wireEncode();
     // send Data packet
     m_face->put(*data);
 }

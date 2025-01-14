@@ -55,6 +55,8 @@ private:
     // ndn::Name m_keyLocator;
     ndn::KeyChain m_keyChain;
     uint32_t m_prefixnum; // customized
+
+    int m_dataSize;
 };
 
 #endif // NDN_PRODUCER_H
