@@ -6,12 +6,19 @@
 #include <ndn-cxx/encoding/block.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <chrono>
 #include <memory>
 #include <set>
 #include <map>
 #include <vector>
 #include <string>
 #include <iostream>
+
+enum CcAlgorithm
+{
+    AIMD,
+    CUBIC
+};
 
 class App
 {
@@ -137,13 +144,16 @@ protected:
     // New design for tree topology to get child node info
     std::map<std::string, std::vector<std::string>> m_linkInfo;
 
-    // Define log directory
-    std::string folderPath = "logs";
-    std::string throughput_recorder = folderPath + "/throughput.txt"; // "totalInterestThroughput", "totalDataThroughput", "total time"
+    // Throughput/aggregation tree log file
+    // waiting for modify path
+    std::string throughput_recorder = "src/ndnSIM/results/logs/throughput.txt"; // "totalInterestThroughput", "totalDataThroughput", "total time"
+    std::string aggTree_recorder = "src/ndnSIM/results/logs/aggTree.txt";
+    std::string result_recorder = "src/ndnSIM/results/logs/result.txt";
 
     bool m_active; ///< @brief Flag to indicate that application is active (set by StartApplication and StopApplication)
     std::shared_ptr<ndn::Face> m_face;
     // ndn::Face m_face;
+    CcAlgorithm m_ccAlgorithm;
     uint32_t m_appId;
 
     // Logger
