@@ -83,7 +83,7 @@ public:
      * @param data The received ModelData
      * @param seq The sequence number
      */
-    void aggregate(const ModelData &data, const uint32_t &seq);
+    void Aggregate(const ModelData &data, const uint32_t &seq);
 
     /**
      * @brief Method to get the mean of the parameters
@@ -526,6 +526,8 @@ protected:
     SeqTimeoutsContainer m_seqLastDelay;
     SeqTimeoutsContainer m_seqFullDelay;
     std::map<uint32_t, uint32_t> m_seqRetxCounts;
+
+    std::chrono::steady_clock::time_point startTime;
 };
 
 #endif // NDN_CONSUMER_HPP
