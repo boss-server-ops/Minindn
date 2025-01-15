@@ -6,8 +6,28 @@
  * Constructor
  */
 ModelData::ModelData()
-    : parameters(300, 0.0f)
+    : qsf(-1.0) // Initialize qsf as a double
 {
+    // waiting for modify path
+    int parameterSize = readDataSizeFromConfig("src/ndnSIM/experiments/simulation_settings/config.ini");
+    parameters.resize(parameterSize, 0.0);
+}
+
+// Function to read DataSize from the [General] section of a configuration file
+int readDataSizeFromConfig(const std::string &filename)
+{
+    boost::property_tree::ptree pt;
+    try
+    {
+        boost::property_tree::ini_parser::read_ini(filename, pt);
+        int dataSize = pt.get<int>("General.DataSize"); // Using get to fetch the value and convert to int
+        return dataSize;
+    }
+    catch (const std::exception &e)
+    {
+        std::cerr << "Exception caught: " << e.what() << std::endl;
+        return 150; // Default value on error
+    }
 }
 
 /**
@@ -21,12 +41,15 @@ void serializeModelData(const ModelData &modelData, std::vector<uint8_t> &buffer
     // Clear the buffer first
     buffer.clear();
 
-    // Serialize ModelData.parameters into bytes first
-    size_t paramSize = modelData.parameters.size() * sizeof(float);
+    // Transfer ModelData.parameters into bytes
+    size_t paramSize = modelData.parameters.size() * sizeof(double);
     buffer.resize(paramSize);
     std::copy(reinterpret_cast<const uint8_t *>(modelData.parameters.data()),
               reinterpret_cast<const uint8_t *>(modelData.parameters.data()) + paramSize,
               buffer.data());
+
+    // Transfer ModelData.qsf into bytes (now double instead of int)
+    buffer.insert(buffer.end(), reinterpret_cast<const uint8_t *>(&modelData.qsf), reinterpret_cast<const uint8_t *>(&modelData.qsf + 1));
 
     // Serialize ModelData.congestedNodes into bytes
     for (const auto &str : modelData.congestedNodes)
@@ -48,8 +71,8 @@ void serializeModelData(const ModelData &modelData, std::vector<uint8_t> &buffer
  */
 bool deserializeModelData(const std::vector<uint8_t> &buffer, ModelData &modelData)
 {
-    // Deserialize ModelData.parameters first
-    size_t paramSize = modelData.parameters.size() * sizeof(float);
+    // Transfer ModelData.parameters back
+    size_t paramSize = modelData.parameters.size() * sizeof(double);
     if (buffer.size() < paramSize)
     {
         spdlog::error("Buffer size is smaller than expected!");
@@ -57,8 +80,16 @@ bool deserializeModelData(const std::vector<uint8_t> &buffer, ModelData &modelDa
     }
     std::copy(buffer.data(), buffer.data() + paramSize, reinterpret_cast<uint8_t *>(modelData.parameters.data()));
 
-    // Deserialize ModelData.congestedNodes
+    // Transfer ModelData.qsf back (now double instead of int)
     size_t currentIndex = paramSize;
+    if (currentIndex + sizeof(double) > buffer.size())
+    {
+        std::cout << "Buffer size can't hold qsf value!" << std::endl;
+        return false;
+    }
+    std::copy(buffer.data() + currentIndex, buffer.data() + currentIndex + sizeof(double), reinterpret_cast<uint8_t *>(&modelData.qsf));
+    currentIndex += sizeof(double);
+    // Deserialize ModelData.congestedNodes
     while (currentIndex < buffer.size())
     {
         if (currentIndex + sizeof(uint32_t) > buffer.size())

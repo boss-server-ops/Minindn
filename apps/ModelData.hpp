@@ -3,10 +3,14 @@
 #include <vector>
 #include <cstdint>
 #include <string>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <iostream>
 
 struct ModelData
 {
-    std::vector<float> parameters;
+    std::vector<double> parameters; // Model parameters
+    double qsf;
     std::vector<std::string> congestedNodes;
 
     ModelData();
