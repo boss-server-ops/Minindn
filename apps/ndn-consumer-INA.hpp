@@ -7,6 +7,7 @@
 #include <ndn-cxx/util/random.hpp>
 #include <ndn-cxx/util/rtt-estimator.hpp>
 #include <ndn-cxx/util/time.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <memory>
@@ -62,20 +63,23 @@ public:
      * Override from Consumer class
      * Schedule the next packet to be sent
      */
-    virtual void ScheduleNextPacket() override;
+    virtual void ScheduleNextPacket(std::string prefix) override;
 
 private:
     /**
      * Increase the window size
      */
-    void WindowIncrease();
+    void WindowIncrease(std::string prefix);
 
     /**
      * Decrease the window size
      * @param type The type of decrease (e.g., congestion)
      */
-    void WindowDecrease(const std::string &type);
+    void WindowDecrease(std::string prefix, std::string type);
 
+    void CubicIncerase(std::string prefix);
+
+    void CubicDecrease(std::string prefix, std::string type);
     /**
      * Set the window size
      * @param window The new window size
@@ -91,42 +95,28 @@ private:
     /**
      * Record the window size for testing purposes
      */
-    void WindowRecorder();
+    void WindowRecorder(std::string prefix);
 
     /**
      * Record the response time
      * @param flag A flag indicating whether to record the response time
      */
-    void ResponseTimeRecorder(bool flag);
+    void ResponseTimeRecorder(std::string prefix, bool flag);
 
     /**
      * Initialize log files
      */
     void InitializeLogFile();
 
+    void InitializeParameter();
+
 public:
     typedef std::function<void(double)> WindowTraceCallback;
 
 private:
-    // Window design
-    uint32_t m_initialWindow;
-    double m_window;
-    uint32_t m_inFlight;
-    bool m_setInitialWindowOnTimeout;
+    bool m_setInitialWindowOnTimeout; // Seems not enabled
 
-    // AIMD design
-    double m_ssthresh;
-    bool m_useCwa;
-    uint32_t m_highData;
-    double m_recPoint;
-    double m_alpha; // Timeout decrease factor
-    double m_beta;  // Local congestion decrease factor
-    double m_gamma; // Remote congestion decrease factor
-    double m_addRttSuppress;
-    bool m_reactToCongestionMarks;
-
-    // For testing purpose, consumer window monitor
-    std::string windowTimeRecorder = "consumer_window.txt";
+    ndn::scheduler::EventId windowMonitor;
 };
 
 #endif
