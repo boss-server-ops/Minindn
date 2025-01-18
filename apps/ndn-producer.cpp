@@ -1,6 +1,6 @@
 #include "ndn-producer.hpp"
 
-#include "ModelData.hpp" // 假设你有一个 ModelData 类和 serializeModelData 函数
+#include "ModelData.hpp"
 
 Producer::Producer(const std::string &prefix)
     : m_virtualPayloadSize(1024),
