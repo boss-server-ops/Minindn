@@ -23,7 +23,6 @@
 #include <boost/circular_buffer.hpp>
 #include "sliding_window.hpp"
 #include "ndn-cxx/lp/nack-header.hpp"
-#include "ns3/log.h"
 #include "ndn-app.hpp"
 #include "ModelData.hpp"
 
@@ -33,6 +32,11 @@ public:
     Aggregator();
     virtual ~Aggregator() = default;
 
+    /**
+     * @brief Set the prefix for the node
+     * @param prefix The prefix to set
+     */
+    void setPrefix(const ndn::Name &prefix);
     /**
      * @brief Start the application
      */

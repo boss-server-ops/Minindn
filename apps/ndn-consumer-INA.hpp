@@ -52,6 +52,7 @@ public:
      */
     virtual void OnTimeout(const ndn::Interest &interest) override;
 
+    virtual void OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack) override;
     /**
      * Override from Consumer class
      * Send an interest

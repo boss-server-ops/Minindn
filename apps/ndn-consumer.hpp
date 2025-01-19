@@ -28,7 +28,7 @@ class Consumer : public App
 {
 public:
     Consumer();
-    virtual ~Consumer() = default;
+    // virtual ~Consumer() = default;
 
     void run();
 
@@ -308,7 +308,6 @@ protected:
     int suspiciousPacketCount;                                // When timeout is triggered, add one
     int dataOverflow;                                         // Record the number of data overflow
     int nackCount;                                            // Record the number of NACK
-    int suspiciousPacketCount;                                // When timeout is triggered, add one
 
     // Update when WindowDecrease() is called every time, used for CWA algorithm
     std::map<std::string, std::chrono::milliseconds> lastWindowDecreaseTime;
