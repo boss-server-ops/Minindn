@@ -9,7 +9,7 @@ ModelData::ModelData()
     : qsf(-1.0) // Initialize qsf as a double
 {
     // waiting for modify path
-    int parameterSize = readDataSizeFromConfig("src/ndnSIM/experiments/simulation_settings/config.ini");
+    int parameterSize = readDataSizeFromConfig("experiments/config.ini");
     parameters.resize(parameterSize, 0.0);
 }
 

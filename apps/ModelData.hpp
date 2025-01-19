@@ -31,3 +31,5 @@ void serializeModelData(const ModelData &modelData, std::vector<uint8_t> &buffer
  * @return True if deserialization is successful, otherwise false
  */
 bool deserializeModelData(const std::vector<uint8_t> &buffer, ModelData &modelData);
+
+int readDataSizeFromConfig(const std::string &filename);
