@@ -145,13 +145,12 @@ protected:
     std::map<std::string, std::vector<std::string>> m_linkInfo;
 
     // Throughput/aggregation tree log file
-    // waiting for modify path
-    std::string throughput_recorder = "src/ndnSIM/results/logs/throughput.txt"; // "totalInterestThroughput", "totalDataThroughput", "total time"
-    std::string aggTree_recorder = "src/ndnSIM/results/logs/aggTree.txt";
-    std::string result_recorder = "src/ndnSIM/results/logs/result.txt";
+    std::string throughput_recorder = "../results/logs/throughput.txt"; // "totalInterestThroughput", "totalDataThroughput", "total time"
+    std::string aggTree_recorder = "../results/logs/aggTree.txt";
+    std::string result_recorder = "../results/logs/result.txt";
 
     bool m_active; ///< @brief Flag to indicate that application is active (set by StartApplication and StopApplication)
-    std::shared_ptr<ndn::Face> m_face;
+    ndn::Face m_face;
     // ndn::Face m_face;
     CcAlgorithm m_ccAlgorithm;
     uint32_t m_appId;

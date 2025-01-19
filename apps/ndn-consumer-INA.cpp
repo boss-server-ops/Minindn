@@ -3,10 +3,8 @@
 ConsumerINA::ConsumerINA()
 {
 
-    m_logger = spdlog::basic_logger_mt("consumerINA_logger", "logs/consumerINA.log");
-    spdlog::set_default_logger(m_logger);
-    spdlog::set_level(spdlog::level::info); // Set log level
-    spdlog::flush_on(spdlog::level::info);  // Flush after each log
+    // m_logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
+    // spdlog::set_default_logger(m_logger);
     spdlog::info("ConsumerINA initialized");
 }
 
@@ -77,14 +75,6 @@ void ConsumerINA::SendInterest(std::shared_ptr<ndn::Name> newName)
 void ConsumerINA::StartApplication()
 {
     Consumer::StartApplication();
-    // Consumer::StartApplication();
-    // Initialize log files
-    // InitializeLogFile();
-
-    // Initialize parameters
-    // InitializeParameter();
-    Consumer::ConstructAggregationTree();
-    Consumer::TreeBroadcast();
 }
 
 // void ConsumerINA::OnData(const ndn::Interest &interest, const ndn::Data &data)
@@ -442,36 +432,36 @@ void ConsumerINA::StartApplication()
 //     // Close the file
 //     file.close();
 // }
-// void ConsumerINA::InitializeLogFile()
-// {
+void ConsumerINA::InitializeLogFile()
+{
 
-//     Consumer::InitializeLogFile();
-// }
+    Consumer::InitializeLogFile();
+}
 
 /**
  * Initialize parameters
  */
-// void ConsumerINA::InitializeParameter()
-// {
-//     Consumer::InitializeParameter();
+void ConsumerINA::InitializeParameter()
+{
+    Consumer::InitializeParameter();
 
-//     // Initialize cwnd
-//     for (const auto &round : globalTreeRound)
-//     {
-//         for (const auto &flow : round)
-//         {
-//             m_window[flow] = m_initialWindow;
-//             m_inFlight[flow] = 0;
-//             m_ssthresh[flow] = std::numeric_limits<double>::max();
+    // Initialize cwnd
+    for (const auto &round : globalTreeRound)
+    {
+        for (const auto &flow : round)
+        {
+            m_window[flow] = m_initialWindow;
+            m_inFlight[flow] = 0;
+            m_ssthresh[flow] = std::numeric_limits<double>::max();
 
-//             // Initialize CUBIC factor
-//             m_cubicLastWmax[flow] = m_initialWindow;
-//             m_cubicWmax[flow] = m_initialWindow;
-//             auto now = std::chrono::steady_clock::now();
-//             lastWindowDecreaseTime[flow] = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
-//         }
-//     }
-// }
+            // Initialize CUBIC factor
+            m_cubicLastWmax[flow] = m_initialWindow;
+            m_cubicWmax[flow] = m_initialWindow;
+            auto now = std::chrono::steady_clock::now();
+            lastWindowDecreaseTime[flow] = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
+        }
+    }
+}
 
 void ConsumerINA::OnData(const ndn::Interest &interest, const ndn::Data &data)
 {
@@ -532,15 +522,6 @@ void ConsumerINA::ResponseTimeRecorder(std::string prefix, bool flag)
     // 占位实现
 }
 
-void ConsumerINA::InitializeLogFile()
-{
-    // 占位实现
-}
-
-void ConsumerINA::InitializeParameter()
-{
-    // 占位实现
-}
 void ConsumerINA::ScheduleNextPacket(std::string prefix)
 {
     // 占位实现

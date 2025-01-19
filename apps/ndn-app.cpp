@@ -12,7 +12,7 @@ namespace std
 #include "algorithm/utility/utility.hpp"
 App::App()
     : m_active(false),
-      m_face(std::make_shared<ndn::Face>()),
+      m_face(),
       m_appId(std::numeric_limits<uint32_t>::max())
 {
     // initialize spdlog
@@ -56,12 +56,12 @@ void App::OnData(const ndn::Interest &interest, const ndn::Data &data)
 
 void App::OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack)
 {
-    spdlog::error("Received Nack for Interest: {} ({})", interest.getName().toUri(), static_cast<int>(nack.getReason()));
+    spdlog::info("Received Nack for Interest: {} ({})", interest.getName().toUri(), static_cast<int>(nack.getReason()));
 }
 
 void App::OnTimeout(const ndn::Interest &interest)
 {
-    spdlog::error("Interest timeout for: {}", interest.getName().toUri());
+    spdlog::info("Interest timeout for: {}", interest.getName().toUri());
 }
 
 void App::ConstructAggregationTree()
@@ -83,7 +83,7 @@ void App::StopApplication()
     if (!m_active)
         return;
     m_active = false;
-    m_face->shutdown();
+    m_face.shutdown();
     spdlog::info("Application stopped");
 }
 

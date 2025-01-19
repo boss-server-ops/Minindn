@@ -9,8 +9,24 @@ Consumer::Consumer()
       m_nodeprefix("con0"),
       m_constraint(2),
       m_seq(0),
+      m_smooth_window_size(3),
       m_seqMax(100),
-      m_interestLifeTime(std::chrono::milliseconds(2000)),
+      m_interestLifeTime(std::chrono::milliseconds(4000)),
+      m_EWMAFactor(0.3),
+      m_dataQueue(5),
+      m_useWIS(true),
+      m_useCubicFastConv(false),
+      m_thresholdFactor(1.0),
+      m_iteNum(200),
+      m_interestQueue(5),
+      m_retxTimer(std::chrono::milliseconds(10)),
+      m_dataSize(150),
+      m_initPace(2),
+      m_qsfQueueThreshold(10),
+      m_qsfMDFactor(0.9),
+      m_qsfRPFactor(0.9),
+      m_qsfTimeDuration(5),
+      m_qsfInitRate(0.5),
       m_rand(std::random_device{}()),                     // Use std::random_device to generate random seed
       m_uniformDist(0.0, 1.0),                            // Initialize uniform distribution, range [0.0, 1.0]
       m_rtt(std::make_unique<ndn::util::RttEstimator>()), // Initialize RTT estimator
@@ -21,7 +37,6 @@ Consumer::Consumer()
       nackCount(0),
       throughputStable(false),
       linkCount(0), initSeq(0),
-
       globalSeq(0),
       broadcastSync(false),
       total_response_time(0),
@@ -30,11 +45,13 @@ Consumer::Consumer()
       iterationCount(0),
       m_minWindow(1)
 {
+
+    m_ccAlgorithm = CcAlgorithm::AIMD;
     // Initialize spdlog
     m_logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
     spdlog::set_default_logger(m_logger);
-    spdlog::set_level(spdlog::level::info); // Set log level
-    spdlog::flush_on(spdlog::level::info);  // Flush after each log
+    spdlog::set_level(spdlog::level::debug); // Set log level
+    spdlog::flush_on(spdlog::level::debug);  // Flush after each log
 
     spdlog::info("Consumer initialized with interest name: {}", m_interestName);
 }
@@ -44,6 +61,7 @@ Consumer::Consumer()
  */
 void Consumer::TreeBroadcast()
 {
+
     const auto &broadcastTree = aggregationTree[0];
 
     for (const auto &[parentNode, childList] : broadcastTree)
@@ -205,18 +223,18 @@ void Consumer::StartApplication()
 
     // Construct the aggregation tree
     // TODO: delete comment later
-    // ConstructAggregationTree();
-    // TreeBroadcast();
+    ConstructAggregationTree();
+    TreeBroadcast();
 
     // // Init log file and parameters
-    // InitializeLogFile();
-    // InitializeParameter();
+    InitializeLogFile();
+    InitializeParameter();
 
     // // Broadcast the aggregation tree
     // // TreeBroadcast();
 
     // // Start the interest generator
-    // InterestGenerator();
+    InterestGenerator();
 }
 
 // void Consumer::StopApplication() // Called at time specified by Stop
@@ -724,38 +742,40 @@ std::map<std::string, std::set<std::string>> Consumer::getLeafNodes(const std::s
 //     RTO_threshold[prefix] = std::chrono::milliseconds(4 * RTO);
 // }
 
-// void Consumer::InterestGenerator()
-// {
-//     // Generate name from section 1 to 3 (except for seq)
-//     std::vector<std::string> objectProducer;
-//     std::string token;
-//     std::istringstream tokenStream(proList);
-//     char delimiter = '.';
-//     while (std::getline(tokenStream, token, delimiter))
-//     {
-//         objectProducer.push_back(token);
-//     }
+void Consumer::InterestGenerator()
+{
+    // Generate name from section 1 to 3 (except for seq)
+    std::vector<std::string> objectProducer;
+    std::string token;
+    std::istringstream tokenStream(proList);
+    char delimiter = '.';
+    while (std::getline(tokenStream, token, delimiter))
+    {
+        objectProducer.push_back(token);
+    }
 
-//     for (const auto &aggTree : aggregationTree)
-//     {
-//         auto initialAllocation = getLeafNodes(m_nodeprefix, aggTree); // example - {agg0: [pro0, pro1]}
+    for (const auto &aggTree : aggregationTree)
+    {
+        auto initialAllocation = getLeafNodes(m_nodeprefix, aggTree); // example - {agg0: [pro0, pro1]}
+        // spdlog::debug("Initial allocation: {}", initialAllocation);
+        for (const auto &[child, leaves] : initialAllocation)
+        {
+            std::string name_sec0_2;
+            std::string name_sec1;
 
-//         for (const auto &[child, leaves] : initialAllocation)
-//         {
-//             std::string name_sec0_2;
-//             std::string name_sec1;
-
-//             for (const auto &leaf : leaves)
-//             {
-//                 name_sec1 += leaf + ".";
-//             }
-//             name_sec1.resize(name_sec1.size() - 1);
-//             name_sec0_2 = "/" + child + "/" + name_sec1 + "/data";
-//             NameSec0_2[child] = name_sec0_2;
-//             vec_iteration.push_back(child); // Will be added to aggregation map later
-//         }
-//     }
-// }
+            for (const auto &leaf : leaves)
+            {
+                name_sec1 += leaf + ".";
+            }
+            name_sec1.resize(name_sec1.size() - 1);
+            spdlog::debug("Name section 1: {}", name_sec1);
+            name_sec0_2 = "/" + child + "/" + name_sec1 + "/data";
+            spdlog::debug("Name section 0-2: {}", name_sec0_2);
+            NameSec0_2[child] = name_sec0_2;
+            vec_iteration.push_back(child); // Will be added to aggregation map later
+        }
+    }
+}
 
 // bool Consumer::InterestSplitting()
 // {
@@ -956,81 +976,82 @@ void Consumer::SendInterest(std::shared_ptr<ndn::Name> newName)
 //     file.close();
 // }
 
-// void Consumer::InitializeLogFile()
-// {
-//     // waiting for modify path
-//     //  Check whether object path exists, create it if not
-//     CheckDirectoryExist(folderPath);
-//     for (int roundIndex = 0; roundIndex < globalTreeRound.size(); roundIndex++)
-//     {
-//         for (int i = 0; i < globalTreeRound[roundIndex].size(); i++)
-//         {
-//             // RTT/RTO recorder
-//             // responseTime_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTT_round" + std::to_string(roundIndex) + "_" + globalTreeRound[roundIndex][i] + ".txt";
-//             // RTO_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTO_round" + std::to_string(roundIndex) + "_" + globalTreeRound[roundIndex][i] + ".txt";
-//             responseTime_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTT_" + globalTreeRound[roundIndex][i] + ".txt";
-//             RTO_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTO_" + globalTreeRound[roundIndex][i] + ".txt";
-//             OpenFile(responseTime_recorder[globalTreeRound[roundIndex][i]]);
-//             OpenFile(RTO_recorder[globalTreeRound[roundIndex][i]]);
-//         }
-//     }
-//     for (const auto &round : globalTreeRound)
-//     {
-//         for (const auto &prefix : round)
-//         {
-//             qsNew_recorder[prefix] = folderPath + "/consumer_queue_" + prefix + ".txt";
-//             qsf_recorder[prefix] = folderPath + "/consumer_qsf_" + prefix + ".txt";
-//             inFlight_recorder[prefix] = folderPath + "/consumer_inFlight_" + prefix + ".txt";
-//             OpenFile(qsNew_recorder[prefix]);
-//             OpenFile(qsf_recorder[prefix]);
-//             OpenFile(inFlight_recorder[prefix]);
-//         }
-//     }
-//     // Aggregation time, AggTree, throughput
-//     aggregateTime_recorder = folderPath + "/consumer_aggregationTime.txt";
-//     // Open the file and clear all contents for all log files
-//     OpenFile(aggregateTime_recorder);
-//     OpenFile(throughput_recorder);
-//     OpenFile(aggTree_recorder);
-//     // Result log
-//     OpenFile(result_recorder);
-// }
-// /**
-//  * Initialize all parameters for consumer class
-//  */
-// void Consumer::InitializeParameter()
-// {
-//     int i = 0;
-//     // Each round
-//     for (const auto &round : globalTreeRound)
-//     {
-//         // Individual flow
-//         for (const auto &prefix : round)
-//         {
-//             //* Initialize RTO and RTT parameters
-//             initRTO[prefix] = false;
-//             RTO_threshold[prefix] = 5 * m_retxTimer;
-//             // RTT_threshold[prefix] = 0;
-//             RTT_count[prefix] = 0;
-//             RTT_historical_estimation[prefix] = 0;
-//             //* Initialize sequence map, interest queue
-//             SeqMap[prefix] = 0;
-//             interestQueue[prefix] = std::deque<uint32_t>();
-//             m_inFlight[prefix] = 0;
-//             //! Debugging - Initialize qsf info
-//             m_qsfSlidingWindows[prefix] = SlidingWindow<double>(std::chrono::milliseconds(m_qsfTimeDuration));
-//             m_estimatedBW[prefix] = m_qsfInitRate;
-//             m_rateLimit[prefix] = m_qsfInitRate;
-//             firstData[prefix] = true;
-//             // m_rateEvent[prefix] = Simulator::ScheduleNow(&Consumer::RateLimitUpdate, this, prefix);
-//             RTT_estimation_qsf[prefix] = 0; // Init rtt estimation as 0
-//             spdlog::debug("Init rate limit - {} pkgs/ms.", m_rateLimit[prefix] * 1000);
-//         }
-//         i++;
-//     }
-//     // Init params for interest sending rate pacing
-//     isRTTEstimated = false;
-// }
+void Consumer::InitializeLogFile()
+{
+    // waiting for modify path
+    //  Check whether object path exists, create it if not
+    CheckDirectoryExist(folderPath);
+    for (int roundIndex = 0; roundIndex < globalTreeRound.size(); roundIndex++)
+    {
+        for (int i = 0; i < globalTreeRound[roundIndex].size(); i++)
+        {
+            // RTT/RTO recorder
+            // responseTime_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTT_round" + std::to_string(roundIndex) + "_" + globalTreeRound[roundIndex][i] + ".txt";
+            // RTO_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTO_round" + std::to_string(roundIndex) + "_" + globalTreeRound[roundIndex][i] + ".txt";
+            responseTime_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTT_" + globalTreeRound[roundIndex][i] + ".txt";
+            spdlog::debug("responseTime_recorder[{}]: {}", globalTreeRound[roundIndex][i], responseTime_recorder[globalTreeRound[roundIndex][i]]);
+            RTO_recorder[globalTreeRound[roundIndex][i]] = folderPath + "/consumer_RTO_" + globalTreeRound[roundIndex][i] + ".txt";
+            OpenFile(responseTime_recorder[globalTreeRound[roundIndex][i]]);
+            OpenFile(RTO_recorder[globalTreeRound[roundIndex][i]]);
+        }
+    }
+    for (const auto &round : globalTreeRound)
+    {
+        for (const auto &prefix : round)
+        {
+            qsNew_recorder[prefix] = folderPath + "/consumer_queue_" + prefix + ".txt";
+            qsf_recorder[prefix] = folderPath + "/consumer_qsf_" + prefix + ".txt";
+            inFlight_recorder[prefix] = folderPath + "/consumer_inFlight_" + prefix + ".txt";
+            OpenFile(qsNew_recorder[prefix]);
+            OpenFile(qsf_recorder[prefix]);
+            OpenFile(inFlight_recorder[prefix]);
+        }
+    }
+    // Aggregation time, AggTree, throughput
+    aggregateTime_recorder = folderPath + "/consumer_aggregationTime.txt";
+    // Open the file and clear all contents for all log files
+    OpenFile(aggregateTime_recorder);
+    OpenFile(throughput_recorder);
+    OpenFile(aggTree_recorder);
+    // Result log
+    OpenFile(result_recorder);
+}
+/**
+ * Initialize all parameters for consumer class
+ */
+void Consumer::InitializeParameter()
+{
+    int i = 0;
+    // Each round
+    for (const auto &round : globalTreeRound)
+    {
+        // Individual flow
+        for (const auto &prefix : round)
+        {
+            //* Initialize RTO and RTT parameters
+            initRTO[prefix] = false;
+            RTO_threshold[prefix] = 5 * m_retxTimer;
+            // RTT_threshold[prefix] = 0;
+            RTT_count[prefix] = 0;
+            RTT_historical_estimation[prefix] = 0;
+            //* Initialize sequence map, interest queue
+            SeqMap[prefix] = 0;
+            interestQueue[prefix] = std::deque<uint32_t>();
+            m_inFlight[prefix] = 0;
+            //! Debugging - Initialize qsf info
+            m_qsfSlidingWindows[prefix] = SlidingWindow<double>(std::chrono::milliseconds(m_qsfTimeDuration));
+            m_estimatedBW[prefix] = m_qsfInitRate;
+            m_rateLimit[prefix] = m_qsfInitRate;
+            firstData[prefix] = true;
+            // m_rateEvent[prefix] = Simulator::ScheduleNow(&Consumer::RateLimitUpdate, this, prefix);
+            RTT_estimation_qsf[prefix] = 0; // Init rtt estimation as 0
+            spdlog::info("Init rate limit - {} pkgs/ms.", m_rateLimit[prefix] * 1000);
+        }
+        i++;
+    }
+    // Init params for interest sending rate pacing
+    isRTTEstimated = false;
+}
 
 // bool Consumer::CanDecreaseWindow(std::string prefix, int64_t threshold)
 // {
@@ -1447,11 +1468,6 @@ std::chrono::milliseconds Consumer::RTOMeasure(int64_t resTime, std::string pref
     return std::chrono::milliseconds(0);
 }
 
-void Consumer::InterestGenerator()
-{
-    // 占位实现
-}
-
 bool Consumer::InterestSplitting()
 {
     // 占位实现
@@ -1485,16 +1501,6 @@ void Consumer::ResponseTimeRecorder(int roundIndex, std::string prefix, uint32_t
 }
 
 void Consumer::AggregateTimeRecorder(std::chrono::milliseconds aggregateTime, uint32_t seq)
-{
-    // 占位实现
-}
-
-void Consumer::InitializeLogFile()
-{
-    // 占位实现
-}
-
-void Consumer::InitializeParameter()
 {
     // 占位实现
 }
