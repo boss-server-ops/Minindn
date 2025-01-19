@@ -53,6 +53,7 @@ public:
         // std::this_thread::sleep_for(std::chrono::seconds(5));
         // StopRetx();
         // std::this_thread::sleep_for(std::chrono::seconds(5));
+        spdlog::info("SConsumer finished");
     }
 
     // void SetRetxTimer(std::chrono::milliseconds retxTimer)
