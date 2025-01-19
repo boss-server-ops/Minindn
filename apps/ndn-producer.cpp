@@ -61,7 +61,7 @@ void Producer::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest
     // use KeyChain to sign Data packet
     m_keyChain.sign(*data);
     // send Data packet
-    m_face->put(*data);
+    m_face.put(*data);
 }
 
 void Producer::StartApplication()
@@ -69,11 +69,11 @@ void Producer::StartApplication()
 
     App::StartApplication();
     spdlog::info("Producer application started");
-    m_face->setInterestFilter(m_prefix.toUri(),
-                              std::bind(&Producer::OnInterest, this, std::placeholders::_1, std::placeholders::_2),
-                              std::bind(&App::OnRegisterSuccess, this, std::placeholders::_1),
-                              std::bind(&App::OnRegisterFailure, this, std::placeholders::_1, std::placeholders::_2));
-    m_face->processEvents();
+    m_face.setInterestFilter(m_prefix.toUri(),
+                             std::bind(&Producer::OnInterest, this, std::placeholders::_1, std::placeholders::_2),
+                             std::bind(&App::OnRegisterSuccess, this, std::placeholders::_1),
+                             std::bind(&App::OnRegisterFailure, this, std::placeholders::_1, std::placeholders::_2));
+    m_face.processEvents();
     spdlog::info("Producer finished processing events");
 }
 
