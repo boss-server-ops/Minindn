@@ -8,6 +8,8 @@ LIBS = -lndn-cxx -lboost_system -lspdlog -lfmt -lstdc++fs
 # 指定源文件和目标文件
 PRODUCER_SRC = producer_test.cpp
 CONSUMER_SRC = consumer_test.cpp
+AGGREGATOR_SRC= aggregator_test.cpp
+AGGREGATOR_OBJ= aggregator_test
 PRODUCER_OBJ = producer_test
 CONSUMER_OBJ = consumer_test
 M_PRODUCER_SRC = mproducer.cpp
@@ -16,8 +18,8 @@ M_PRODUCER_OBJ= MProducer
 S_CONSUMER_OBJ= SConsumer
 
 NDN_PRODUCER_SRC = ndn-producer.cpp ndn-app.cpp ModelData.cpp
-NDN_CONSUMER_INA_SRC = ndn-consumer-INA.cpp ndn-consumer.cpp ndn-app.cpp
-NDN_AGGREGATOR_SRC = ndn-aggregator.cpp ndn-app.cpp
+NDN_CONSUMER_INA_SRC = ndn-consumer-INA.cpp ndn-consumer.cpp ndn-app.cpp ModelData.cpp
+NDN_AGGREGATOR_SRC = ndn-aggregator.cpp ndn-app.cpp ModelData.cpp
 NDN_PRODUCER_OBJ = ndn-producer
 NDN_CONSUMER_INA_OBJ = ndn-consumer-INA
 NDN_AGGREGATOR_OBJ = ndn-aggregator
@@ -25,7 +27,7 @@ NDN_AGGREGATOR_OBJ = ndn-aggregator
 
 ALGORITHM_SRC = $(wildcard algorithm/src/*.cpp algorithm/utility/*.cpp)
 # 默认目标
-all: $(PRODUCER_OBJ) $(CONSUMER_OBJ)
+all: $(PRODUCER_OBJ) $(CONSUMER_OBJ) $(AGGREGATOR_OBJ)
 
 # 编译 producer
 $(PRODUCER_OBJ): $(PRODUCER_SRC)
@@ -35,6 +37,9 @@ $(PRODUCER_OBJ): $(PRODUCER_SRC)
 $(CONSUMER_OBJ): $(CONSUMER_SRC)
 	$(CXX) $(CXXFLAGS) $(CONSUMER_SRC) -o $(CONSUMER_OBJ) $(LIBS)
 
+# 编译 aggregator
+$(AGGREGATOR_OBJ): $(AGGREGATOR_SRC)
+	$(CXX) $(CXXFLAGS) $(AGGREGATOR_SRC) -o $(AGGREGATOR_OBJ) $(LIBS)
 # 编译 MProducer
 $(M_PRODUCER_OBJ): $(M_PRODUCER_SRC)
 	$(CXX) $(CXXFLAGS) $(M_PRODUCER_SRC) -o $(M_PRODUCER_OBJ) $(LIBS)
