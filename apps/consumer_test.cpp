@@ -7,10 +7,11 @@
 class ConsumerTest
 {
 public:
-    ConsumerTest()
+    ConsumerTest(const std::string &prefix) : m_prefix(prefix)
+
     {
         // 初始化 spdlog
-        auto logger = spdlog::basic_logger_mt("consumer_logger", "log/consumer.log");
+        auto logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
         spdlog::set_default_logger(logger);
         spdlog::set_level(spdlog::level::info); // 设置日志级别
         spdlog::flush_on(spdlog::level::info);  // 每条日志后刷新
@@ -20,8 +21,8 @@ public:
 
     void run()
     {
-        // 创建一个 Interest 数据包
-        ndn::Interest interest("/example/testApp");
+        // 创建一个 Interest 数据包,名称格式 /pro0/data
+        ndn::Interest interest(m_prefix);
         interest.setCanBePrefix(false);
         interest.setInterestLifetime(ndn::time::seconds(2));
 
@@ -55,11 +56,17 @@ private:
 private:
     ndn::Face m_face;
     ndn::KeyChain m_keyChain;
+    ndn::Name m_prefix;
 };
 
-int main()
+int main(int argc, char **argv)
 {
-    ConsumerTest consumer;
+    if (argc != 2)
+    {
+        std::cerr << "Usage: " << argv[0] << "the seq of the producer" << std::endl;
+        return 1;
+    }
+    ConsumerTest consumer(argv[1]);
     consumer.run();
     return 0;
 }
