@@ -1,8 +1,13 @@
 #include <iostream>
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/security/validator-null.hpp>
+#include <ndn-cxx/util/segment-fetcher.hpp>
+#include <ndn-cxx/security/signing-info.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/sinks/basic_file_sink.h>
+#include <boost/asio/io_context.hpp>
+#include <ndn-cxx/util/segmenter.hpp>
 
 class AggregatorTest
 {
@@ -40,43 +45,76 @@ private:
 
         ndn::Name newName = interest.getName().getSubName(1);
 
-        // 创建新的兴趣包
-        ndn::Interest newInterest(newName);
-        newInterest.setCanBePrefix(false);
-        newInterest.setMustBeFresh(true);
-        newInterest.setInterestLifetime(ndn::time::seconds(2));
+        spdlog::info("Sending interest: {}", newName.toUri());
 
-        spdlog::info("Sending Interest to Producer: {}", newInterest.getName().toUri());
+        ndn::SegmentFetcher::Options options;
+        options.interestLifetime = ndn::time::milliseconds(10000); // 保持 10 秒
+        options.maxTimeout = ndn::time::milliseconds(120000);      // 保持 120 秒
 
-        // 发送兴趣包给 Producer
-        m_face.expressInterest(newInterest,
-                               std::bind(&AggregatorTest::onData, this, _1, _2),
-                               std::bind(&AggregatorTest::onNack, this, _1, _2),
-                               std::bind(&AggregatorTest::onTimeout, this, _1));
+        auto fetcher = ndn::SegmentFetcher::start(m_face, ndn::Interest(newName), m_validator, options);
+
+        fetcher->onComplete.connect([this, interest](const ndn::ConstBufferPtr &content)
+                                    { onSegmentedData(content, interest); });
+
+        fetcher->onError.connect([this](uint32_t errorCode, const std::string &errorMsg)
+                                 { spdlog::error("Request failed: {} - {}", errorCode, errorMsg); });
     }
 
-    void onData(const ndn::Interest &interest, const ndn::Data &data)
+    void onSegmentedData(const ndn::ConstBufferPtr &buffer, const ndn::Interest &interest)
     {
-        spdlog::info("Received Data from Producer: {}", data.getName().toUri());
-        ndn::Name newName;
-        newName.append(ndn::Name("/")).append(ndn::Name(m_prefix)).append(data.getName());
+        spdlog::info("Received Data from Producer: {}", buffer->size());
+        ndn::Name newName = interest.getName();
         // 将数据包发送回 Consumer
-        auto newData = std::make_shared<ndn::Data>(newName);
-        newData->setFreshnessPeriod(ndn::time::seconds(10));
-        newData->setContent(data.getContent());
-        m_keyChain.sign(*newData);
-        m_face.put(*newData);
-        spdlog::info("Sent Data: {}", newData->getName().toUri());
-    }
+        // 分片处理
+        const size_t SEGMENT_SIZE = 4000; // 分片大小（根据MTU调整）
+        ndn::Segmenter segmenter(m_keyChain, m_signingInfo);
+        std::vector<std::shared_ptr<ndn::Data>> segments = segmenter.segment(
+            ndn::make_span(reinterpret_cast<const uint8_t *>(buffer->data()), buffer->size()),
+            newName, SEGMENT_SIZE, ndn::time::seconds(20), ndn::tlv::ContentType_Blob);
+        // 检查请求的是否是特定分段
+        if (newName.size() > m_prefix.size() + 1 && newName[-1].isSegment())
+        {
+            // 请求的是特定分段（如 seg=3）
+            uint64_t requestedSegNo = newName[-1].toSegment();
+            if (requestedSegNo < segments.size())
+            {
+                // 设置分段名称和 FinalBlockId
+                segments[requestedSegNo]->setName(newName);
+                segments[requestedSegNo]->setFreshnessPeriod(ndn::time::seconds(10));
+                segments[requestedSegNo]->setFinalBlock(ndn::name::Component::fromSegment(segments.size() - 1));
 
-    void onNack(const ndn::Interest &interest, const ndn::lp::Nack &nack)
-    {
-        spdlog::warn("Received Nack from Producer: {} for Interest: {}", static_cast<int>(nack.getReason()), interest.getName().toUri());
-    }
+                // 签名并发送
+                m_keyChain.sign(*segments[requestedSegNo]);
+                m_face.put(*segments[requestedSegNo]);
+                spdlog::info("Sent segment {}: {}", requestedSegNo, newName.toUri());
+            }
+            else
+            {
+                spdlog::warn("Requested segment {} is out of range", requestedSegNo);
+            }
+        }
+        else
+        {
+            // 初始请求（无 seg= 后缀）：返回第一个分段 seg=0
+            ndn::Name firstSegmentName = newName;
+            firstSegmentName.appendSegment(0);
 
-    void onTimeout(const ndn::Interest &interest)
-    {
-        spdlog::warn("Timeout for Interest: {}", interest.getName().toUri());
+            // 设置第一个分段
+            segments[0]->setName(firstSegmentName);
+            segments[0]->setFreshnessPeriod(ndn::time::seconds(10));
+            segments[0]->setFinalBlock(ndn::name::Component::fromSegment(segments.size() - 1));
+
+            // 签名并发送
+            m_keyChain.sign(*segments[0]);
+            m_face.put(*segments[0]);
+            spdlog::info("Sent initial segment 0: {}", firstSegmentName.toUri());
+        }
+        // auto newData = std::make_shared<ndn::Data>(newName);
+        // newData->setFreshnessPeriod(ndn::time::seconds(10));
+        // newData->setContent(buffer);
+        // m_keyChain.sign(*newData);
+        // m_face.put(*newData);
+        spdlog::info("Sent Data: {}", newName.toUri());
     }
 
     void onRegisterSuccess(const ndn::Name &prefix)
@@ -92,7 +130,9 @@ private:
 private:
     ndn::Face m_face;
     ndn::KeyChain m_keyChain;
+    ndn::security::ValidatorNull m_validator;
     ndn::Name m_prefix;
+    ndn::security::SigningInfo m_signingInfo;
 };
 
 int main(int argc, char **argv)
