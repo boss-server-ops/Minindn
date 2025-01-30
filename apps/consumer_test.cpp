@@ -8,6 +8,7 @@
 #include <chrono>
 #include <fstream>
 #include <boost/property_tree/ptree.hpp>
+#include <boost/asio/io_context.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 
 class ConsumerTest
@@ -16,105 +17,117 @@ public:
     ConsumerTest(const std::string &prefix)
         : m_prefix(prefix), m_firstRequest(true)
     {
-        // 初始化 spdlog
+        // 初始化 spdlog (保持原有日志配置)
         auto logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
         spdlog::set_default_logger(logger);
-        spdlog::set_level(spdlog::level::info); // 设置日志级别
-        spdlog::flush_on(spdlog::level::info);  // 每条日志后刷新
+        spdlog::set_level(spdlog::level::info);
+        spdlog::flush_on(spdlog::level::info);
 
-        spdlog::info("ConsumerTest initialized");
-
-        // 读取配置
+        // 读取配置 (保持原有配置读取方式)
         boost::property_tree::ptree pt;
         try
         {
             boost::property_tree::ini_parser::read_ini("../experiments/experiment.ini", pt);
             m_dataSize = pt.get<size_t>("Datasize.datasize");
-            spdlog::info("Data size set to {} bytes", m_dataSize);
-
             int experimentTime = pt.get<int>("ExperimentTime.experimenttime");
-            ExperimentDuration = std::chrono::seconds(experimentTime);
-            spdlog::info("Experiment duration set to {} seconds", experimentTime);
+            m_experimentDuration = std::chrono::seconds(experimentTime);
         }
         catch (const boost::property_tree::ptree_error &e)
         {
-            spdlog::error("Failed to read configuration file: {}", e.what());
+            spdlog::error("Failed to read configuration: {}", e.what());
             throw;
         }
 
-        // 生成文件名
+        // 保持原有文件名生成逻辑
         m_rttFileName = generateFileName(m_dataSize);
-        spdlog::info("RTT file name set to {}", m_rttFileName);
+        spdlog::info("RTT file: {}", m_rttFileName);
     }
 
     void run()
     {
-        StartTime = std::chrono::high_resolution_clock::now();
-        int i = 0;
-        while (std::chrono::high_resolution_clock::now() - StartTime < ExperimentDuration)
-        {
-
-            ndn::Name interestName = m_prefix;
-            interestName.append("version").append(std::to_string(i++));
-
-            spdlog::info("Starting SegmentFetcher for: {}", interestName.toUri());
-
-            // 记录开始时间
-            m_startTime = std::chrono::high_resolution_clock::now();
-
-            // 设置 SegmentFetcher 选项
-            ndn::SegmentFetcher::Options options;
-            options.interestLifetime = ndn::time::milliseconds(10000); // 10 秒
-            options.maxTimeout = ndn::time::milliseconds(120000);      // 120 秒
-
-            // 使用 SegmentFetcher 获取数据
-            auto fetcher = ndn::SegmentFetcher::start(m_face, ndn::Interest(interestName), m_validator, options);
-
-            fetcher->onComplete.connect([this](const ndn::ConstBufferPtr &content)
-                                        { this->onSegmentedData(content); });
-
-            fetcher->onError.connect([](uint32_t errorCode, const std::string &errorMsg)
-                                     { spdlog::error("Error occurred: {} - {}", errorCode, errorMsg); });
-
-            // 处理事件循环（保持异步）
-            m_face.processEvents();
-        }
+        m_experimentStart = std::chrono::high_resolution_clock::now();
+        sendNextInterest(0); // 启动第一个请求
+        m_face.processEvents();
     }
 
 private:
-    void
-    onSegmentedData(const ndn::ConstBufferPtr &buffer)
+    void sendNextInterest(int seq)
     {
-        // 记录结束时间
+        // 检查实验是否超时
+        if (std::chrono::high_resolution_clock::now() - m_experimentStart >= m_experimentDuration)
+        {
+            spdlog::info("Experiment duration reached, stopping");
+            m_face.shutdown();
+            return;
+        }
+
+        // 保持原有兴趣包构造方式
+        ndn::Name interestName = m_prefix;
+        interestName.append("version").append(std::to_string(seq));
+
+        spdlog::info("Sending interest: {}", interestName.toUri());
+
+        // 保持原有时间记录方式
+        m_startTime = std::chrono::high_resolution_clock::now();
+
+        // 保持原有 SegmentFetcher 参数
+        ndn::SegmentFetcher::Options options;
+        options.interestLifetime = ndn::time::milliseconds(10000); // 保持 10 秒
+        options.maxTimeout = ndn::time::milliseconds(120000);      // 保持 120 秒
+
+        auto fetcher = ndn::SegmentFetcher::start(m_face, ndn::Interest(interestName), m_validator, options);
+
+        // 保持原有回调结构，添加序列号跟踪
+        fetcher->onComplete.connect([this, seq](const ndn::ConstBufferPtr &content)
+                                    {
+                                        onSegmentedData(content);
+                                        scheduleNext(seq + 1); // 成功时发送下一个
+                                    });
+
+        fetcher->onError.connect([this, seq](uint32_t errorCode, const std::string &errorMsg)
+                                 {
+                                     spdlog::error("Request {} failed: {} - {}", seq, errorCode, errorMsg);
+                                     scheduleNext(seq + 1); // 即使失败也继续发送
+                                 });
+    }
+
+    void scheduleNext(int nextSeq)
+    {
+        // 通过IO服务确保顺序执行
+        m_face.getIoContext().post([this, nextSeq]()
+                                   { sendNextInterest(nextSeq); });
+    }
+
+    void onSegmentedData(const ndn::ConstBufferPtr &buffer)
+    {
+        // 保持原有RTT计算方式
         auto endTime = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> rtt = endTime - m_startTime;
 
-        spdlog::info("Received segmented data ({} bytes)", buffer->size());
-        spdlog::info("RTT: {} seconds", rtt.count());
-
-        // 保存 RTT 到文件
+        // 保持原有文件写入方式
         std::ofstream rtt_file;
         if (m_firstRequest)
         {
-            rtt_file.open(m_rttFileName, std::ios::out); // 清空文件
+            rtt_file.open(m_rttFileName, std::ios::out);
             m_firstRequest = false;
         }
         else
         {
-            rtt_file.open(m_rttFileName, std::ios::app); // 追加内容
+            rtt_file.open(m_rttFileName, std::ios::app);
         }
 
         if (rtt_file.is_open())
         {
-            rtt_file << "RTT: " << rtt.count() << " seconds, starttime: " << std::chrono::duration_cast<std::chrono::seconds>(m_startTime - StartTime).count() << " seconds\n";
+            rtt_file << "RTT: " << rtt.count() << " seconds, starttime: "
+                     << std::chrono::duration_cast<std::chrono::seconds>(m_startTime - m_experimentStart).count()
+                     << " seconds\n";
             rtt_file.close();
         }
-        else
-        {
-            spdlog::error("Failed to open RTT file!");
-        }
+
+        spdlog::info("Received {} bytes, RTT: {:.3f}s", buffer->size(), rtt.count());
     }
 
+    // 保持原有文件名生成逻辑
     std::string generateFileName(size_t dataSize)
     {
         std::ostringstream oss;
@@ -141,12 +154,15 @@ private:
 
 private:
     ndn::Face m_face;
-    ndn::KeyChain m_keyChain;
+    ndn::security::ValidatorNull m_validator;
     ndn::Name m_prefix;
-    ndn::security::ValidatorNull m_validator; // 使用 ValidatorNull 进行简单验证
+
+    // 保持原有时间记录变量
     std::chrono::high_resolution_clock::time_point m_startTime;
-    std::chrono::high_resolution_clock::time_point StartTime;
-    std::chrono::seconds ExperimentDuration;
+    std::chrono::high_resolution_clock::time_point m_experimentStart;
+    std::chrono::seconds m_experimentDuration;
+
+    // 保持原有文件相关变量
     bool m_firstRequest;
     size_t m_dataSize;
     std::string m_rttFileName;
