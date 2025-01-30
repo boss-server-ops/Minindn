@@ -24,17 +24,21 @@ public:
 
         spdlog::info("ConsumerTest initialized");
 
-        // 读取数据大小配置
+        // 读取配置
         boost::property_tree::ptree pt;
         try
         {
             boost::property_tree::ini_parser::read_ini("../experiments/experiment.ini", pt);
             m_dataSize = pt.get<size_t>("Datasize.datasize");
             spdlog::info("Data size set to {} bytes", m_dataSize);
+
+            int experimentTime = pt.get<int>("ExperimentTime.experimenttime");
+            ExperimentDuration = std::chrono::seconds(experimentTime);
+            spdlog::info("Experiment duration set to {} seconds", experimentTime);
         }
         catch (const boost::property_tree::ptree_error &e)
         {
-            spdlog::error("Failed to read datasize from configuration file: {}", e.what());
+            spdlog::error("Failed to read configuration file: {}", e.what());
             throw;
         }
 
@@ -45,10 +49,13 @@ public:
 
     void run()
     {
-        for (int i = 0; i < 10; ++i)
+        StartTime = std::chrono::high_resolution_clock::now();
+        int i = 0;
+        while (std::chrono::high_resolution_clock::now() - StartTime < ExperimentDuration)
         {
+
             ndn::Name interestName = m_prefix;
-            interestName.append("version").append(std::to_string(i));
+            interestName.append("version").append(std::to_string(i++));
 
             spdlog::info("Starting SegmentFetcher for: {}", interestName.toUri());
 
@@ -75,7 +82,8 @@ public:
     }
 
 private:
-    void onSegmentedData(const ndn::ConstBufferPtr &buffer)
+    void
+    onSegmentedData(const ndn::ConstBufferPtr &buffer)
     {
         // 记录结束时间
         auto endTime = std::chrono::high_resolution_clock::now();
@@ -98,7 +106,7 @@ private:
 
         if (rtt_file.is_open())
         {
-            rtt_file << "RTT: " << rtt.count() << " seconds, Data size: " << buffer->size() << " bytes\n";
+            rtt_file << "RTT: " << rtt.count() << " seconds, starttime: " << std::chrono::duration_cast<std::chrono::seconds>(m_startTime - StartTime).count() << " seconds\n";
             rtt_file.close();
         }
         else
@@ -111,17 +119,17 @@ private:
     {
         std::ostringstream oss;
         oss << "../results/rtt_";
-        if (dataSize >= 1024 * 1024 * 1024)
+        if (dataSize >= 1e9)
         {
-            oss << dataSize / (1024 * 1024 * 1024) << "GB";
+            oss << dataSize / 1e9 << "GB";
         }
-        else if (dataSize >= 1024 * 1024)
+        else if (dataSize >= 1e6)
         {
-            oss << dataSize / (1024 * 1024) << "MB";
+            oss << dataSize / 1e6 << "MB";
         }
-        else if (dataSize >= 1024)
+        else if (dataSize >= 1e3)
         {
-            oss << dataSize / 1024 << "KB";
+            oss << dataSize / 1e3 << "KB";
         }
         else
         {
@@ -137,6 +145,8 @@ private:
     ndn::Name m_prefix;
     ndn::security::ValidatorNull m_validator; // 使用 ValidatorNull 进行简单验证
     std::chrono::high_resolution_clock::time_point m_startTime;
+    std::chrono::high_resolution_clock::time_point StartTime;
+    std::chrono::seconds ExperimentDuration;
     bool m_firstRequest;
     size_t m_dataSize;
     std::string m_rttFileName;
