@@ -1294,6 +1294,7 @@ void Consumer::RTTMeasure(std::string prefix, int64_t resTime)
     {
         RTT_estimation_qsf[prefix] = m_EWMAFactor * RTT_estimation_qsf[prefix] + (1 - m_EWMAFactor) * resTime;
     }
+    // TODO : need to consider more instead of assigning it 1
     if (RTT_estimation_qsf[prefix] == 0)
     {
         RTT_estimation_qsf[prefix] = 1;
@@ -1334,8 +1335,7 @@ Consumer::GetDataRate(std::string prefix)
 void Consumer::BandwidthEstimation(std::string prefix, double qsfUpstream)
 {
     auto arrivalTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime);
-    ;
-
+    spdlog::info("Flow: {} - Arrival time: {}", prefix, arrivalTime.count());
     if (qsfUpstream == -1)
     {
         // Upstream aggregator which connects to producers directly

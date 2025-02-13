@@ -56,12 +56,12 @@ void App::OnData(const ndn::Interest &interest, const ndn::Data &data)
 
 void App::OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack)
 {
-    spdlog::info("Received Nack for Interest: {} ({})", interest.getName().toUri(), static_cast<int>(nack.getReason()));
+    spdlog::error("Received Nack for Interest: {} ({})", interest.getName().toUri(), static_cast<int>(nack.getReason()));
 }
 
 void App::OnTimeout(const ndn::Interest &interest)
 {
-    spdlog::info("Interest timeout for: {}", interest.getName().toUri());
+    spdlog::error("Interest timeout for: {}", interest.getName().toUri());
 }
 
 void App::ConstructAggregationTree()

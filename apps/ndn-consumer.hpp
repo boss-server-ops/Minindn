@@ -13,6 +13,7 @@
 #include <memory>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
+#include <boost/asio/io_context.hpp>
 #include <set>
 #include <map>
 #include <vector>
@@ -20,16 +21,20 @@
 #include <queue>
 #include <tuple>
 #include <chrono>
+#include <filesystem>
+#include <fstream>
 #include "ndn-app.hpp"
 #include "ModelData.hpp"
 #include "sliding_window.hpp"
+#include "algorithm/utility/utility.hpp"
+#include "algorithm/include/AggregationTree.hpp"
 
 class Consumer : public App
 {
 public:
     Consumer();
     // virtual ~Consumer() = default;
-
+    void ReadConfig();
     void run();
 
     // /**
@@ -166,12 +171,11 @@ public:
     bool CongestionDetection(std::string prefix, int64_t responseTime);
 
     /**
-     * @brief Method to measure the Round-Trip Time (RTT) for a given prefix based on response time
-     * @param resTime The response time
-     * @param prefix The prefix for which to measure RTT
-     * @return The measured RTT in milliseconds
+     * Compute new RTO based on response time of recent packets
+     * @param resTime
+     * @param roundIndex data packet's round index
      */
-    std::chrono::milliseconds RTOMeasure(int64_t resTime, std::string prefix);
+    void RTOMeasure(int64_t resTime, std::string prefix);
 
     /**
      * @brief Method to record RTO results in files for testing purposes
@@ -457,7 +461,7 @@ protected:
     uint32_t m_seqMax;                              ///< @brief maximum number of sequence number
     std::chrono::milliseconds m_retxTimer;          ///< @brief Currently estimated retransmission timer
     ndn::scheduler::EventId m_retxEvent;            ///< @brief Event to check whether or not retransmission should be performed
-
+    ndn::scheduler::EventId m_timeoutEvent;         ///< @brief Event to check whether or not timeout should be performed
     // change the type of the m_rtt of the ndnSIM
     std::unique_ptr<ndn::util::RttEstimator> m_rtt; ///< @brief RTT estimator
 
@@ -525,8 +529,11 @@ protected:
     SeqTimeoutsContainer m_seqLastDelay;
     SeqTimeoutsContainer m_seqFullDelay;
     std::map<uint32_t, uint32_t> m_seqRetxCounts;
+    std::map<std::string, uint32_t> m_nonceMap;
+    std::map<std::string, ndn::PendingInterestHandle> m_pendingInterest;
 
     std::chrono::steady_clock::time_point startTime;
+    ndn::Scheduler m_scheduler;
 };
 
 #endif // NDN_CONSUMER_HPP

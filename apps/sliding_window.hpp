@@ -10,20 +10,17 @@ template <typename T>
 class SlidingWindow
 {
 public:
-    using Time = std::chrono::milliseconds;
-    using Duration = std::chrono::milliseconds;
-
     struct DataInfo
     {
-        Time arrivalTime; // Arrival time of the data
-        T value;          // Value associated with the data, expected as qsf
+        std::chrono::milliseconds arrivalTime; // Arrival time of the data
+        T value;                               // Value associated with the data, expected as qsf
     };
 
-    SlidingWindow() : m_windowDuration(Duration(10)) {}
+    SlidingWindow() : m_windowDuration(std::chrono::milliseconds(10)) {}
 
-    SlidingWindow(Duration windowDuration) : m_windowDuration(windowDuration) {}
+    SlidingWindow(std::chrono::milliseconds windowDuration) : m_windowDuration(windowDuration) {}
 
-    void AddPacket(Time newTime, T value)
+    void AddPacket(std::chrono::milliseconds newTime, T value)
     {
         m_data.push_back({newTime, value});
 
@@ -49,7 +46,7 @@ public:
         return sum / m_data.size();
     }
 
-    // Unit - pkgs/ms
+    // Unit - pkgs/us
     double GetDataArrivalRate() const
     {
         if (m_data.size() < 2)
@@ -58,19 +55,21 @@ public:
         }
 
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(m_data.back().arrivalTime - m_data.front().arrivalTime).count();
-        if (duration <= 0)
+        // difference : is it without = is ok?
+        if (duration < 0)
         {
             spdlog::info("Current number of elements within the sliding window: {}", m_data.size());
-            spdlog::info("Back element: {} us.", std::chrono::duration_cast<std::chrono::microseconds>(m_data.back().arrivalTime.time_since_epoch()).count());
-            spdlog::info("Front element: {} us.", std::chrono::duration_cast<std::chrono::microseconds>(m_data.front().arrivalTime.time_since_epoch()).count());
+            spdlog::info("Back element: {} us.", std::chrono::duration_cast<std::chrono::microseconds>(m_data.back().arrivalTime).count());
+            spdlog::info("Front element: {} us.", std::chrono::duration_cast<std::chrono::microseconds>(m_data.front().arrivalTime).count());
             spdlog::info("Actual duration: {} ns.", duration);
             return -1.0;
         }
-        return static_cast<double>((m_data.size() - 1) / duration * 1e6);
+        // difference : data type conversion
+        return static_cast<double>((m_data.size() - 1)) / duration * 1e3;
     }
 
 private:
-    Duration m_windowDuration;
+    std::chrono::milliseconds m_windowDuration;
     std::deque<DataInfo> m_data;
 };
 

@@ -398,7 +398,7 @@ void Aggregator::StartApplication()
 {
     // NS_LOG_FUNCTION_NOARGS();
     App::StartApplication();
-
+    startTime = std::chrono::steady_clock::now();
     std::string prefix = m_prefix.toUri();
     m_face.setInterestFilter(prefix,
                              std::bind(&Aggregator::OnInterest, this, std::placeholders::_1, std::placeholders::_2),

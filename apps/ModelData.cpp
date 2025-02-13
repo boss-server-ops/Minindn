@@ -9,7 +9,7 @@ ModelData::ModelData()
     : qsf(-1.0) // Initialize qsf as a double
 {
     // waiting for modify path
-    int parameterSize = readDataSizeFromConfig("experiments/config.ini");
+    int parameterSize = readDataSizeFromConfig("../experiments/config.ini");
     parameters.resize(parameterSize, 0.0);
 }
 
@@ -25,7 +25,7 @@ int readDataSizeFromConfig(const std::string &filename)
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Exception caught: " << e.what() << std::endl;
+        spdlog::error("Exception caught: {}", e.what());
         return 150; // Default value on error
     }
 }

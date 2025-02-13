@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: Mini-NDN
+Version: 0.5.0
+Summary: Mininet based NDN emulator
+License-File: COPYING.md
+License-File: AUTHORS.rst

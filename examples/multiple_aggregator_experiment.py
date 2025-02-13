@@ -70,7 +70,7 @@ if __name__ == '__main__':
     # 在节点a上启动consumer程序
     info('Starting Consumer on node con0\n')
     consumer = Application(node_con0)
-    consumer.start(consumer_path + ' /agg0/agg1/pro0/data', 'consumertest.log')  
+    consumer.start(consumer_path + ' /agg0/agg1/pro0', 'consumertest.log')  
 
     MiniNDNCLI(ndn.net)
 

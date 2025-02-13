@@ -29,27 +29,28 @@ if __name__ == '__main__':
     sleep(60)  #wait for routing convergence
 
     node_a = ndn.net.get('a')
-    node_b = ndn.net.get('c')
+    node_b = ndn.net.get('b')
 
     # 获取consumer和producer的绝对路径
     consumer_path = os.path.abspath('./apps/consumer_test')
     producer_path = os.path.abspath('./apps/producer_test')
 
     # 在节点b上启动producer程序
-    info('Starting Producer on node b\n')
-    producer = Application(node_b)
-    producer.start(producer_path + ' /example/testApp', 'producertest.log')  
+    info('Starting Producer on node pro0\n')
+    producer = Application(node_a)
+    producer.start(producer_path + ' /pro0' ,'producertest.log')  
 
-    producerPrefix = "/example/testApp"
-    node_b.cmd('nlsrc advertise {}'.format(producerPrefix))  # 在节点b上广告前缀
-    sleep(5)  # 等待路由信息传播
-    # sleep(5)
+
+    prefix = "/pro0"
+    node_a.cmd('nlsrc advertise {}'.format(prefix))
+    sleep(5)
+
 
     # 在节点a上启动consumer程序
-    info('Starting Consumer on node a\n')
-    consumer = Application(node_a)
-    consumer.start(consumer_path, 'consumertest.log')  # 使用绝对路径
-    node_a.cmd('ps aux | grep consumer')  # 打印进程信息
+    info('Starting Consumer on node con0\n')
+    consumer = Application(node_b)
+    consumer.start(consumer_path + ' /pro0', 'consumertest.log')  
+
 
     MiniNDNCLI(ndn.net)
 

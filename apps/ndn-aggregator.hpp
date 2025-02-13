@@ -31,7 +31,7 @@ class Aggregator : public App
 public:
     Aggregator();
     virtual ~Aggregator() = default;
-
+    void ReadConfig();
     /**
      * @brief Set the prefix for the node
      * @param prefix The prefix to set
@@ -73,7 +73,7 @@ public:
      * @brief Schedule the next packet to be sent
      */
     virtual void ScheduleNextPacket(std::string prefix);
-    bool InterestSplitting(uint32_t seq);
+    void InterestSplitting(uint32_t seq);
     void InterestGenerator();
 
     /**
@@ -461,6 +461,9 @@ protected:
     SeqTimeoutsContainer m_seqFullDelay;
     std::map<uint32_t, uint32_t> m_seqRetxCounts;
     ndn::KeyChain m_keyChain;
-
+    std::map<std::string, ndn::PendingInterestHandle> m_pendingInterest;
     std::chrono::steady_clock::time_point startTime;
+    ndn::Scheduler m_scheduler;
+
+    ndn::scheduler::EventId m_timeoutEvent; ///< @brief Event to check whether or not timeout should be performed
 };

@@ -28,6 +28,7 @@ from minindn.apps.app_manager import AppManager
 from minindn.apps.nfd import Nfd
 from minindn.apps.nlsr import Nlsr
 from minindn.helpers.ip_routing_helper import IPRoutingHelper
+from minindn.util import MiniNDNCLI
 
 """
 This scenario demonstrates the functionality of the IPRoutingHelper. First, the routing helper
@@ -58,5 +59,8 @@ if __name__ == '__main__':
     info("IP routes configured, start ping\n")
 
     ndn.net.pingAll()
+
+    # 启动命令行接口
+    MiniNDNCLI(ndn.net)
 
     ndn.stop()

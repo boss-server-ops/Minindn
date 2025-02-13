@@ -6,7 +6,8 @@ Producer::Producer(const std::string &prefix)
     : m_virtualPayloadSize(1024),
       m_freshness(ndn::time::milliseconds(1000)),
       m_prefixnum(0),
-      m_prefix(prefix)
+      m_prefix(prefix),
+      m_dataSize(150)
 {
     // 初始化 spdlog
     m_logger = spdlog::basic_logger_mt("producer_logger", "logs/producer.log");
@@ -33,7 +34,6 @@ Producer::Producer()
 
 void Producer::OnInterest(const ndn::InterestFilter &filter, const ndn::Interest &interest)
 {
-    spdlog::info("Received Interest: {}", interest.getName().toUri());
     App::OnInterest(filter, interest);
 
     if (!m_active)

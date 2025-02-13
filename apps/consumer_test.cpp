@@ -118,9 +118,9 @@ private:
 
         if (rtt_file.is_open())
         {
-            rtt_file << "RTT: " << rtt.count() << " seconds, starttime: "
-                     << std::chrono::duration_cast<std::chrono::seconds>(m_startTime - m_experimentStart).count()
-                     << " seconds\n";
+            auto timestamp = std::chrono::duration_cast<std::chrono::duration<double>>(m_startTime - m_experimentStart).count();
+            rtt_file << "Timestamp: " << std::fixed << std::setprecision(6) << timestamp
+                     << " RTT: " << std::fixed << std::setprecision(6) << rtt.count() << " seconds\n";
             rtt_file.close();
         }
 
@@ -148,7 +148,7 @@ private:
         {
             oss << dataSize << "B";
         }
-        oss << ".txt";
+        oss << "ndn.txt";
         return oss.str();
     }
 

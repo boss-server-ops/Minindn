@@ -50,7 +50,7 @@ class Minindn(object):
         5) Some other utility functions
     """
     ndnSecurityDisabled = False
-    workDir = '/tmp/minindn'
+    workDir = '/var/minindn'
     resultDir = None
 
     def __init__(self, parser=argparse.ArgumentParser(), topo=None, topoFile=None, noTopo=False,
