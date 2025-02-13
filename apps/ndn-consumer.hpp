@@ -1,121 +1,106 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2011-2018  Regents of the University of California.
- *
- * This file is part of ndnSIM. See AUTHORS for complete list of ndnSIM authors and
- * contributors.
- *
- * ndnSIM is free software: you can redistribute it and/or modify it under the terms
- * of the GNU General Public License as published by the Free Software Foundation,
- * either version 3 of the License, or (at your option) any later version.
- *
- * ndnSIM is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- * PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * ndnSIM, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
- **/
+#ifndef NDN_CONSUMER_H
+#define NDN_CONSUMER_H
 
-#ifndef NDN_CONSUMER_PCON_H
-#define NDN_CONSUMER_PCON_H
+#include <memory>
+#include <functional>
+#include <iostream>
+#include <string>
+#include <map>
+#include <set>
+#include <chrono>
+#include <random>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/tag.hpp>
+#include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/member.hpp>
+#include <ndn-cxx/interest.hpp>
+#include <ndn-cxx/lp/nack.hpp>
+#include <ndn-cxx/util/rtt-estimator.hpp>
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
 
-#include "ns3/ndnSIM/model/ndn-common.hpp"
-
-#include "ndn-consumer-window.hpp"
-
-namespace ns3
+class Consumer
 {
-    namespace ndn
+public:
+    Consumer();
+    virtual ~Consumer() {}
+
+    virtual void OnData(const ndn::Interest &interest, const ndn::Data &data);
+    virtual void OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack);
+    virtual void OnTimeout(const ndn::Interest &interest);
+    void SendPacket();
+    virtual void WillSendOutInterest(uint32_t sequenceNumber);
+
+    typedef std::function<void(uint32_t seqno, std::chrono::milliseconds delay, int32_t hopCount)> LastRetransmittedInterestDataDelayCallback;
+    typedef std::function<void(uint32_t seqno, std::chrono::milliseconds delay, uint32_t retxCount, int32_t hopCount)> FirstInterestDataDelayCallback;
+
+protected:
+    virtual void StartApplication();
+    virtual void StopApplication();
+    virtual void ScheduleNextPacket() = 0;
+    void CheckRetxTimeout();
+    void SetRetxTimer(std::chrono::milliseconds retxTimer);
+    std::chrono::milliseconds GetRetxTimer() const;
+
+protected:
+    std::mt19937 m_rand; ///< @brief nonce generator
+
+    uint32_t m_seq;                        ///< @brief currently requested sequence number
+    uint32_t m_seqMax;                     ///< @brief maximum number of sequence number
+    std::chrono::milliseconds m_retxTimer; ///< @brief Currently estimated retransmission timer
+    std::unique_ptr<ndn::util::RttEstimator> m_rtt;
+    std::chrono::milliseconds m_offTime;          ///< \brief Time interval between packets
+    std::string m_interestName;                   ///< \brief NDN Name of the Interest (use Name)
+    std::chrono::milliseconds m_interestLifeTime; ///< \brief LifeTime for interest packet
+    ndn::scheduler::EventId m_retxEvent;          ///< \brief Event for retransmission timer
+    ndn::scheduler::EventId m_sendEvent;          ///< \brief Event for sending interest
+
+    struct RetxSeqsContainer : public std::set<uint32_t>
     {
+    };
 
-        enum CcAlgorithm
-        {
-            AIMD,
-            BIC,
-            CUBIC
-        };
+    RetxSeqsContainer m_retxSeqs; ///< \brief ordered set of sequence numbers to be retransmitted
 
-        /**
-         * @ingroup ndn-apps
-         * \brief NDN consumer application with more advanced congestion control options
-         *
-         * This app uses the algorithms from "A Practical Congestion Control Scheme for Named
-         * Data Networking" (https://dl.acm.org/citation.cfm?id=2984369).
-         *
-         * It implements slow start, conservative window adaptation (RFC 6675),
-         * and 3 different TCP algorithms: AIMD, BIC, and CUBIC (RFC 8312).
-         */
-        class ConsumerPcon : public ConsumerWindow
-        {
-        public:
-            static TypeId
-            GetTypeId();
+    struct SeqTimeout
+    {
+        SeqTimeout(uint32_t _seq, std::chrono::milliseconds _time)
+            : seq(_seq), time(_time) {}
 
-            ConsumerPcon();
+        uint32_t seq;
+        std::chrono::milliseconds time;
+    };
 
-            virtual void
-            OnData(shared_ptr<const Data> data) override;
+    class i_seq
+    {
+    };
+    class i_timestamp
+    {
+    };
 
-            virtual void
-            OnTimeout(uint32_t sequenceNum) override;
+    struct SeqTimeoutsContainer
+        : public boost::multi_index::multi_index_container<
+              SeqTimeout,
+              boost::multi_index::indexed_by<
+                  boost::multi_index::ordered_unique<
+                      boost::multi_index::tag<i_seq>,
+                      boost::multi_index::member<SeqTimeout, uint32_t, &SeqTimeout::seq>>,
+                  boost::multi_index::ordered_non_unique<
+                      boost::multi_index::tag<i_timestamp>,
+                      boost::multi_index::member<SeqTimeout, std::chrono::milliseconds, &SeqTimeout::time>>>>
+    {
+    };
 
-        private:
-            void
-            WindowIncrease();
+    SeqTimeoutsContainer m_seqTimeouts; ///< \brief multi-index for the set of SeqTimeout structs
+    SeqTimeoutsContainer m_seqLastDelay;
+    SeqTimeoutsContainer m_seqFullDelay;
+    std::map<uint32_t, uint32_t> m_seqRetxCounts;
 
-            void
-            WindowDecrease();
+    LastRetransmittedInterestDataDelayCallback m_lastRetransmittedInterestDataDelay;
+    FirstInterestDataDelayCallback m_firstInterestDataDelay;
 
-            void
-            CubicIncrease();
+    std::chrono::steady_clock::time_point startTime; // TODO:need to initialize
+    ndn::Face m_face;
+    ndn::Scheduler m_scheduler;
+};
 
-            void
-            CubicDecrease();
-
-            void
-            BicIncrease();
-
-            void
-            BicDecrease();
-
-        private:
-            CcAlgorithm m_ccAlgorithm;
-            double m_beta;
-            double m_addRttSuppress;
-            bool m_reactToCongestionMarks;
-            bool m_useCwa;
-
-            double m_ssthresh;
-            uint32_t m_highData;
-            double m_recPoint;
-
-            // TCP CUBIC Parameters //
-            static constexpr double CUBIC_C = 0.4;
-            bool m_useCubicFastConv;
-            double m_cubicBeta;
-
-            double m_cubicWmax;
-            double m_cubicLastWmax;
-            time::steady_clock::TimePoint m_cubicLastDecrease;
-
-            // TCP BIC Parameters //
-            //! Regular TCP behavior (including slow start) until this window size
-            static constexpr uint32_t BIC_LOW_WINDOW = 14;
-
-            //! Sets the maximum (linear) increase of TCP BIC. Should be between 8 and 64.
-            static constexpr uint32_t BIC_MAX_INCREMENT = 16;
-
-            // BIC variables:
-            double m_bicMinWin; //!< last minimum cwnd
-            double m_bicMaxWin; //!< last maximum cwnd
-            double m_bicTargetWin;
-            double m_bicSsCwnd;
-            double m_bicSsTarget;
-            bool m_isBicSs; //!< whether we are currently in the BIC slow start phase
-        };
-
-    } // namespace ndn
-} // namespace ns3
-
-#endif // NDN_CONSUMER_PCON_H
+#endif // NDN_CONSUMER_H
