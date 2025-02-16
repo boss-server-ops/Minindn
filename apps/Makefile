@@ -19,11 +19,12 @@ S_CONSUMER_OBJ= SConsumer
 
 NDN_PRODUCER_SRC = ndn-producer.cpp ndn-app.cpp ModelData.cpp
 NDN_CONSUMER_INA_SRC = ndn-consumer-INA.cpp ndn-consumer.cpp ndn-app.cpp ModelData.cpp
+NDN_CONSUMER_PCON_SRC = ndn-consumer-pcon.cpp ndn-consumer.cpp ndn-app.cpp ModelData.cpp
 NDN_AGGREGATOR_SRC = ndn-aggregator.cpp ndn-app.cpp ModelData.cpp
 NDN_PRODUCER_OBJ = ndn-producer
 NDN_CONSUMER_INA_OBJ = ndn-consumer-INA
 NDN_AGGREGATOR_OBJ = ndn-aggregator
-
+NDN_PCON_OBJ = ndn-consumer-pcon
 
 ALGORITHM_SRC = $(wildcard algorithm/src/*.cpp algorithm/utility/*.cpp)
 # 默认目标
@@ -59,14 +60,16 @@ $(NDN_CONSUMER_INA_OBJ): $(NDN_CONSUMER_INA_SRC) $(ALGORITHM_SRC)
 $(NDN_AGGREGATOR_OBJ): $(NDN_AGGREGATOR_SRC) $(ALGORITHM_SRC)
 	$(CXX) $(CXXFLAGS) $(NDN_AGGREGATOR_SRC) $(ALGORITHM_SRC) -o $(NDN_AGGREGATOR_OBJ) $(LIBS)
 
+$(NDN_PCON_OBJ): $(NDN_CONSUMER_PCON_SRC) $(ALGORITHM_SRC)
+	$(CXX) $(CXXFLAGS) $(NDN_CONSUMER_PCON_SRC) $(ALGORITHM_SRC) -o $(NDN_PCON_OBJ) $(LIBS)
 
 scmp: $(M_PRODUCER_OBJ) $(S_CONSUMER_OBJ)
 
-ndn: $(NDN_PRODUCER_OBJ) $(NDN_CONSUMER_INA_OBJ) $(NDN_AGGREGATOR_OBJ)
+ndn: $(NDN_PRODUCER_OBJ) $(NDN_CONSUMER_INA_OBJ) $(NDN_AGGREGATOR_OBJ) $(NDN_PCON_OBJ)
 
 # 测试目标
 test: all
 
 # 清理目标
 clean:
-	rm -f $(PRODUCER_OBJ) $(CONSUMER_OBJ) $(M_PRODUCER_OBJ) $(S_CONSUMER_OBJ) $(NDN_PRODUCER_OBJ) $(NDN_CONSUMER_INA_OBJ) $(NDN_AGGREGATOR_OBJ)
+	rm -f $(PRODUCER_OBJ) $(CONSUMER_OBJ) $(M_PRODUCER_OBJ) $(S_CONSUMER_OBJ) $(NDN_PRODUCER_OBJ) $(NDN_CONSUMER_INA_OBJ) $(NDN_AGGREGATOR_OBJ) $(NDN_PCON_OBJ) $(AGGREGATOR_OBJ) $(NDN_PCON_OBJ)

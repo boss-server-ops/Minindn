@@ -1,69 +1,123 @@
-#ifndef NDN_CONSUMER_PCON_H
-#define NDN_CONSUMER_PCON_H
+#ifndef NDN_CONSUMER_Pcon_HPP
+#define NDN_CONSUMER_Pcon_HPP
 
+#include <ndn-cxx/face.hpp>
+#include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/encoding/block.hpp>
+#include <ndn-cxx/util/random.hpp>
+#include <ndn-cxx/util/rtt-estimator.hpp>
+#include <ndn-cxx/util/time.hpp>
+#include <ndn-cxx/util/scheduler.hpp>
+#include <spdlog/spdlog.h>
+#include <spdlog/sinks/basic_file_sink.h>
 #include <memory>
-#include <chrono>
-#include <iostream>
-#include <functional>
+#include <boost/multi_index_container.hpp>
+#include <boost/multi_index/member.hpp>
+#include <set>
 #include <map>
+#include <vector>
+#include <thread>
+#include <fstream>
 #include <string>
-#include <ndn-cxx/interest.hpp>
-#include <ndn-cxx/lp/nack.hpp>
-#include "ndn-consumer-window.hpp"
+#include <queue>
+#include <tuple>
+#include <chrono>
+#include "ndn-app.hpp"
+#include "ModelData.hpp"
+#include "ndn-consumer.hpp"
 
-enum CcAlgorithm
-{
-    AIMD,
-    BIC,
-    CUBIC
-};
-
-class ConsumerPcon : public ConsumerWindow
+class ConsumerPcon : public Consumer
 {
 public:
     ConsumerPcon();
 
+    /**
+     * Override from Consumer class
+     * Start the application
+     */
+    virtual void StartApplication() override;
+
+    /**
+     * Override from Consumer class
+     * Handle received data
+     * @param interest The interest that triggered the data
+     * @param data The received data
+     */
     virtual void OnData(const ndn::Interest &interest, const ndn::Data &data) override;
+
+    /**
+     * Override from Consumer class
+     * Handle timeout event
+     * @param interest The interest that timed out
+     */
     virtual void OnTimeout(const ndn::Interest &interest) override;
 
-private:
-    void WindowIncrease();
-    void WindowDecrease();
-    void CubicIncrease();
-    void CubicDecrease();
-    void BicIncrease();
-    void BicDecrease();
+    virtual void OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack) override;
+    /**
+     * Override from Consumer class
+     * Send an interest
+     * @param newName The name of the interest to send
+     */
+    virtual void SendInterest(std::shared_ptr<ndn::Name> newName) override;
+
+    /**
+     * Override from Consumer class
+     * Schedule the next packet to be sent
+     */
+    virtual void ScheduleNextPacket(std::string prefix) override;
 
 private:
-    CcAlgorithm m_ccAlgorithm;
-    double m_beta;
-    double m_addRttSuppress;
-    bool m_reactToCongestionMarks;
-    bool m_useCwa;
+    /**
+     * Increase the window size
+     */
+    void WindowIncrease(std::string prefix);
 
-    double m_ssthresh;
-    uint32_t m_highData;
-    double m_recPoint;
+    /**
+     * Decrease the window size
+     * @param type The type of decrease (e.g., congestion)
+     */
+    void WindowDecrease(std::string prefix, std::string type);
 
-    // TCP CUBIC Parameters //
-    static constexpr double CUBIC_C = 0.4;
-    bool m_useCubicFastConv;
-    double m_cubicBeta;
+    void CubicIncerase(std::string prefix);
 
-    double m_cubicWmax;
-    double m_cubicLastWmax;
-    std::chrono::steady_clock::time_point m_cubicLastDecrease;
+    void CubicDecrease(std::string prefix, std::string type);
+    /**
+     * Set the window size
+     * @param window The new window size
+     */
+    virtual void SetWindow(uint32_t window);
 
-    // TCP BIC Parameters //
-    static constexpr uint32_t BIC_LOW_WINDOW = 14;
-    static constexpr uint32_t BIC_MAX_INCREMENT = 16;
+    /**
+     * Get the current window size
+     * @return The current window size
+     */
+    uint32_t GetWindow() const;
 
-    double m_bicMinWin;
-    double m_bicMaxWin;
-    double m_bicTargetWin;
-    double m_bicSsCwnd;
-    double m_bicSsTarget;
-    bool m_isBicSs;
+    /**
+     * Record the window size for testing purposes
+     */
+    void WindowRecorder(std::string prefix);
+
+    /**
+     * Record the response time
+     * @param flag A flag indicating whether to record the response time
+     */
+    void ResponseTimeRecorder(std::string prefix, bool flag);
+
+    /**
+     * Initialize log files
+     */
+    void InitializeLogFile();
+
+    void InitializeParameter();
+
+public:
+    typedef std::function<void(double)> WindowTraceCallback;
+
+private:
+    bool m_setInitialWindowOnTimeout; // Seems not enabled
+
+    ndn::scheduler::EventId windowMonitor;
 };
 
-#endif // NDN_CONSUMER_PCON_H
+#endif

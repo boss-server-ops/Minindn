@@ -140,9 +140,8 @@ void ConsumerINA::WindowDecrease(std::string prefix, std::string type)
 {
 
     // Track last window decrease time
-    auto now = std::chrono::steady_clock::now();
-    lastWindowDecreaseTime[prefix] = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime);
-
+    std::chrono::milliseconds now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - startTime);
+    lastWindowDecreaseTime[prefix] = now;
     // AIMD for timeout
 
     if (m_ccAlgorithm == CcAlgorithm::AIMD)

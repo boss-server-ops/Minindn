@@ -919,6 +919,7 @@ void Aggregator::OnInterest(const ndn::InterestFilter &filter, const ndn::Intere
  */
 void Aggregator::ScheduleNextPacket(std::string prefix)
 {
+
     if (interestQueue.find(prefix) == interestQueue.end())
     {
         spdlog::error("Flow {} is not found in the interest queue.", prefix);
@@ -928,16 +929,34 @@ void Aggregator::ScheduleNextPacket(std::string prefix)
 
     if (!interestQueue.at(prefix).empty())
     {
-        if (m_sendEvent[prefix])
+        if (m_window[prefix] == static_cast<uint32_t>(0))
         {
-
+            spdlog::info("Flow - {}: window is 0, schedule new interests later.", prefix);
             m_sendEvent[prefix].cancel();
             m_sendEvent[prefix].reset();
-            spdlog::debug("Suspicious, remove the previous event.");
-        }
 
-        m_sendEvent[prefix] = m_scheduler.schedule(ndn::time::milliseconds(0), [this, prefix]
-                                                   { this->SendPacket(prefix); });
+            spdlog::debug("Next event in {} sec", std::min<double>(0.5, m_rtt->getEstimatedRto().count() / 1e9));
+
+            m_sendEvent[prefix] = m_scheduler.schedule(ndn::time::seconds(static_cast<int>(std::min<double>(0.5, m_rtt->getEstimatedRto().count() / 1e9))), [this, prefix]
+                                                       { this->SendPacket(prefix); });
+        }
+        else if (m_inFlight[prefix] >= m_window[prefix])
+        {
+            // simply do nothing
+            spdlog::info("Flow - {}: window is full, no need to schedule new interests.", prefix);
+        }
+        else
+        {
+            spdlog::info("Flow - {}: schedule new interests.", prefix);
+            if (m_sendEvent[prefix])
+            {
+                m_sendEvent[prefix].cancel();
+                m_sendEvent[prefix].reset();
+            }
+
+            m_sendEvent[prefix] = m_scheduler.schedule(ndn::time::milliseconds(0), [this, prefix]
+                                                       { this->SendPacket(prefix); });
+        }
         double nextTime = 1 / m_rateLimit[prefix]; // Unit: us
 
         spdlog::debug("Flow {} -> Schedule next sending event after {} ms.", prefix, nextTime / 1000);
@@ -1051,6 +1070,7 @@ void Aggregator::SendPacket(std::string prefix)
  */
 void Aggregator::SendInterest(std::shared_ptr<ndn::Name> newName)
 {
+    spdlog::info("Send interest: {}", newName->toUri());
     if (!m_active)
         return;
 
@@ -1193,10 +1213,7 @@ void Aggregator::OnData(const ndn::Interest &interest, const ndn::Data &data)
                 m_scheduleEvent[name_sec0].reset();
             }
 
-            double nextTime = 5 * 1 / m_rateLimit[name_sec0]; // Unit: us
-            spdlog::info("Flow {} -> Schedule next sending event after {} ms.", name_sec0, nextTime / 1000);
-
-            m_scheduleEvent[name_sec0] = m_scheduler.schedule(ndn::time::microseconds(static_cast<int64_t>(nextTime)), [this, name_sec0]
+            m_scheduleEvent[name_sec0] = m_scheduler.schedule(ndn::time::microseconds(0), [this, name_sec0]
                                                               { this->ScheduleNextPacket(name_sec0); });
         }
         partialAggResult[seq] = true;
@@ -1274,14 +1291,14 @@ void Aggregator::OnData(const ndn::Interest &interest, const ndn::Data &data)
             BandwidthEstimation(name_sec0, upstreamModelData.qsf);
 
             // Init rate limit update
-            if (firstData.at(name_sec0))
-            {
-                spdlog::info("Init rate limit update for flow {}", name_sec0);
-                // question: is it too late to start?
-                m_rateEvent[name_sec0] = m_scheduler.schedule(ndn::time::microseconds(0), [this, name_sec0]
-                                                              { this->RateLimitUpdate(name_sec0); });
-                firstData[name_sec0] = false;
-            }
+            // if (firstData.at(name_sec0))
+            // {
+            //     spdlog::info("Init rate limit update for flow {}", name_sec0);
+            //     // question: is it too late to start?
+            //     m_rateEvent[name_sec0] = m_scheduler.schedule(ndn::time::microseconds(0), [this, name_sec0]
+            //                                                   { this->RateLimitUpdate(name_sec0); });
+            //     firstData[name_sec0] = false;
+            // }
 
             //! For testing purpose
             stop = std::chrono::high_resolution_clock::now();
