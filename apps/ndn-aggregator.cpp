@@ -14,7 +14,7 @@ Aggregator::Aggregator()
     // 初始化 spdlog
     SetWindow(1);
     SetSeqMax(std::numeric_limits<uint32_t>::max());
-    SetRetxTimer(std::chrono::milliseconds(2));
+    SetRetxTimer(std::chrono::milliseconds(10));
     m_ccAlgorithm = CcAlgorithm::AIMD;
     m_logger = spdlog::basic_logger_mt("aggregator_logger", "logs/aggregator.log");
 
@@ -1126,9 +1126,15 @@ void Aggregator::SendData(uint32_t seq)
  */
 void Aggregator::SendNack(std::shared_ptr<const ndn::Interest> interest)
 {
+    spdlog::info("Send NACK back to downstream for interest queue overflow: {}", interest->getName().toUri());
+    ndn::lp::NackHeader nackHeader;
+    nackHeader.setReason(ndn::lp::NackReason::QUEUE_OVERFLOW);
+
     auto nack = std::make_shared<ndn::lp::Nack>(*interest);
-    nack->setReason(ndn::lp::NackReason::QUEUE_OVERFLOW);
-    // nack->wireEncode();
+    nack->setHeader(nackHeader);
+    // nack->setReason(ndn::lp::NackReason::QUEUE_OVERFLOW);
+    // zyx:diffenrent from original code
+
     m_face.put(*nack);
     // TODO: check whether it needs the on receive nack
     //  m_transmittedNacks(nack, this, m_face);

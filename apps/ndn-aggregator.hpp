@@ -2,6 +2,7 @@
 #include <ndn-cxx/util/rtt-estimator.hpp>
 #include <ndn-cxx/util/random.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
+#include <ndn-cxx/lp/nack.hpp>
 #include <spdlog/spdlog.h>
 #include <set>
 #include <map>

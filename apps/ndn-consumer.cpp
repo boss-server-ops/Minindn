@@ -34,7 +34,7 @@ Consumer::Consumer()
 
     // Read configuration from config.ini
     ReadConfig();
-    // SetRetxTimer(std::chrono::milliseconds(2));
+    // SetRetxTimer(std::chrono::milliseconds(10));
 }
 
 void Consumer::ReadConfig()
@@ -615,6 +615,11 @@ void Consumer::OnNack(const ndn::Interest &interest, const ndn::lp::Nack &nack)
     std::string dataName = nack.getInterest().getName().toUri();
     std::string name_sec0 = nack.getInterest().getName().get(0).toUri();
     uint32_t seq = nack.getInterest().getName().get(-1).toSequenceNumber();
+    // if (nack.getReason() == ndn::lp::NackReason::DUPLICATE)
+    // {
+
+    //     return;
+    // }
 
     if (m_inFlight[name_sec0] > 0)
     {
@@ -888,9 +893,10 @@ void Consumer::SendInterest(std::shared_ptr<ndn::Name> newName)
     interest->setName(*newName);
     interest->setCanBePrefix(false);
     // interest->setInterestLifetime(ndn::time::milliseconds(m_interestLifeTime.count()));
-    interest->setInterestLifetime(ndn::time::seconds(10));
+    interest->setInterestLifetime(ndn::time::seconds(2));
 
     spdlog::info("Sending interest >>>> {}", nameWithSeq);
+    // TODO: there are some problems with the following code because actully the ontimeout doesn't suit the situation
     m_pendingInterest[nameWithSeq] = m_face.expressInterest(*interest,
                                                             std::bind(&Consumer::OnData, this, _1, _2),
                                                             std::bind(&Consumer::OnNack, this, _1, _2),
