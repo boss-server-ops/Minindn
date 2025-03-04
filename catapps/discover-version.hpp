@@ -21,7 +21,7 @@ namespace ndn::chunks
     {
     public:
         DiscoverVersion(Face &face, const Name &prefix, const Options &options);
-
+        DiscoverVersion(const DiscoverVersion &other);
         /**
          * @brief Signal emitted when the versioned name of Data is found.
          */

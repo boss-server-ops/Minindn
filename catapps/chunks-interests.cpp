@@ -43,12 +43,11 @@ namespace ndn::chunks
         doCancel();
     }
 
+    // TODO: logic is wrong
     bool
     ChunksInterests::allChunksReceived() const
     {
-        return m_nReceived > 0 &&
-               m_hasFinalChunkId &&
-               static_cast<uint64_t>(m_nReceived - 1) >= m_lastChunkNo;
+        return m_nextChunkNo >= m_options.TotalChunksNumber;
     }
 
     uint64_t

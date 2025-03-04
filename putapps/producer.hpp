@@ -36,7 +36,7 @@ namespace ndn::chunks
          *               version number, the current system time is used as version number.
          */
         Producer(const Name &prefix, Face &face, KeyChain &keyChain, std::istream &is,
-                 const Options &opts);
+                 const Options &opts, uint64_t chunkNumber);
 
         /**
          * @brief Run the producer.
@@ -67,6 +67,7 @@ namespace ndn::chunks
         const Options m_options;
 
         // Below is the new data structure for IMAgg
+
     public:
         spdlog::logger *logger;
     };

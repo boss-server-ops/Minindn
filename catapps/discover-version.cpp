@@ -42,7 +42,7 @@ namespace ndn::chunks
     if (m_options.isVerbose)
     {
       std::cerr << "Data: " << data << "\n";
-      spdlog::info("Data: {}", data);
+      spdlog::info("Data: {}", data.getName().toUri());
     }
 
     // make a metadata object from received metadata packet
@@ -66,7 +66,7 @@ namespace ndn::chunks
     if (m_options.isVerbose)
     {
       std::cerr << "Discovered Data version: " << mobject.getVersionedName()[-1] << "\n";
-      spdlog::info("Discovered Data version: {}", mobject.getVersionedName()[-1]);
+      spdlog::info("Discovered Data version: {}", (mobject.getVersionedName()[-1]).toUri());
     }
 
     onDiscoverySuccess(mobject.getVersionedName());

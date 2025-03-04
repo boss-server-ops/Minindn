@@ -6,7 +6,7 @@ CXXFLAGS = -std=c++17
 LIBS = -lndn-cxx -lboost_system -lspdlog -lfmt -lstdc++fs -lboost_program_options
 
 # 指定源文件和目标文件
-PRODUCER_SRC = producer.cpp main.cpp
+PRODUCER_SRC = producer.cpp main.cpp InputGenerator.cpp
 PRODUCER_OBJ = producer
 
 # 默认目标

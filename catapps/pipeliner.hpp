@@ -1,5 +1,5 @@
-#ifndef IMAgg_CONSUMER_HPP
-#define IMAgg_CONSUMER_HPP
+#ifndef IMAgg_PIPELINER_HPP
+#define IMAgg_PIPELINER_HPP
 
 #include "discover-version.hpp"
 #include "pipeline-interests.hpp"
@@ -14,7 +14,7 @@
 namespace ndn::chunks
 {
 
-    /**
+  /**
    * @brief Segmented version pipeliner.
    *
    * Discover the latest version of the data published under a specified prefix, and retrieve all the
@@ -72,4 +72,4 @@ namespace ndn::chunks
 
 } // namespace ndn::chunks
 
-#endif // IMAgg_CONSUMER_HPP
+#endif // IMAgg_PIPELINER_HPP

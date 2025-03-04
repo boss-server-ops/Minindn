@@ -202,6 +202,8 @@ namespace ndn::chunks
     std::string m_failureReason;
 
     // ChunksInterestsAdaptive *m_chunker; ///< point to the current chunker
+
+    bool m_hasSent = false; ///< indicates if the pipeline has sent any Interest
   };
 
 } // namespace ndn::chunks

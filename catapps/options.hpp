@@ -15,7 +15,7 @@ namespace ndn::chunks
     // Common options
     time::milliseconds interestLifetime = DEFAULT_INTEREST_LIFETIME;
     int maxRetriesOnTimeoutOrNack = 15;
-    bool disableVersionDiscovery = false;
+    bool disableVersionDiscovery = true;
     bool mustBeFresh = false; ///< false means the data can come from cache
     bool isQuiet = false;
     bool isVerbose = false;
@@ -40,7 +40,7 @@ namespace ndn::chunks
     bool enableFastConv = false; ///< use cubic fast convergence
 
     // Chunks pipeline options
-    size_t TotalChunksNumber = 10; ///< total number of chunks in the Aggregation process
+    size_t TotalChunksNumber = 2; ///< total number of chunks in the Aggregation process
   };
 
 } // namespace ndn::chunks

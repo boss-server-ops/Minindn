@@ -8,6 +8,7 @@
 
 #include <iostream>
 #include <spdlog/sinks/basic_file_sink.h>
+#include "InputGenerator.hpp"
 
 namespace ndn::chunks
 {
@@ -83,6 +84,11 @@ namespace ndn::chunks
     static int
     main(int argc, char *argv[])
     {
+        auto m_logger = spdlog::basic_logger_mt("producer_logger", "logs/producer.log");
+        spdlog::set_default_logger(m_logger);
+        spdlog::set_level(spdlog::level::debug);
+        spdlog::flush_on(spdlog::level::debug);
+        spdlog::debug("Started producer");
         const std::string programName(argv[0]);
 
         Producer::Options opts;
@@ -109,10 +115,11 @@ namespace ndn::chunks
             return 0;
         }
 
-        if (!readConfigFile("../experiments/config.ini", opts, prefix, nameConv, signingStr, logFile, logLevel))
+        if (!readConfigFile("../experiments/proconfig.ini", opts, prefix, nameConv, signingStr, logFile, logLevel))
         {
             return 2;
         }
+        spdlog::debug("Finished reading configuration file");
 
         if (prefix.empty())
         {
@@ -163,17 +170,31 @@ namespace ndn::chunks
             return 2;
         }
 
-        auto m_logger = spdlog::basic_logger_mt("producer_logger", logFile);
-        spdlog::set_default_logger(m_logger);
-        spdlog::set_level(spdlog::level::from_str(logLevel));
-        spdlog::flush_on(spdlog::level::from_str(logLevel));
+        // auto m_logger = spdlog::basic_logger_mt("producer_logger", logFile);
+        // spdlog::set_default_logger(m_logger);
+        // spdlog::set_level(spdlog::level::from_str(logLevel));
+        // spdlog::flush_on(spdlog::level::from_str(logLevel));
 
         try
         {
+            spdlog::debug("Generating input");
+            InputGenerator input("../experiments/proconfig.ini", "./hello.txt");
+            size_t chunknumber = input.readFile();
+            spdlog::debug("chunk number: {}", chunknumber);
             Face face;
             KeyChain keyChain;
-            Producer producer(prefix, face, keyChain, std::cin, opts);
-            producer.run();
+            std::vector<std::unique_ptr<Producer>> producers;
+            for (size_t i = 0; i < chunknumber; i++)
+            {
+                spdlog::debug("starting getchunk()");
+                std::unique_ptr<std::istream> chunk = input.getChunk(i);
+                spdlog::debug("Chunk number: {}", i);
+                producers.push_back(std::make_unique<Producer>(prefix, face, keyChain, *chunk, opts, i));
+            }
+            if (!producers.empty())
+            {
+                producers.back()->run();
+            }
         }
         catch (const std::exception &e)
         {

@@ -31,7 +31,6 @@ namespace ndn::chunks
      * After construction, the method run() must be called in order to start the pipeline.
      */
     PipelineInterests(Face &face, const Options &opts, ChunksInterestsAdaptive *chunker = nullptr);
-
     virtual ~PipelineInterests();
 
     using DataCallback = std::function<void(const Data &)>;
@@ -55,10 +54,11 @@ namespace ndn::chunks
     /**
      * @brief set the chunker for this pipeline
      */
-    void setChunker(ChunksInterestsAdaptive *chunker)
-    {
-      m_chunker = chunker;
-    }
+    void setChunker(ChunksInterestsAdaptive *chunker);
+    /**
+     * @brief get the chunker for this pipeline
+     */
+    ChunksInterestsAdaptive *getChunker() const;
 
   protected:
     time::steady_clock::time_point

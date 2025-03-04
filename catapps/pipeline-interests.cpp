@@ -19,6 +19,7 @@ namespace ndn::chunks
   void
   PipelineInterests::run(const Name &versionedName, DataCallback dataCb, FailureCallback failureCb)
   {
+    spdlog::debug("PipelineInterests::run()");
     BOOST_ASSERT(m_options.disableVersionDiscovery ||
                  (!versionedName.empty() && versionedName[-1].isVersion()));
     BOOST_ASSERT(dataCb != nullptr);
@@ -93,7 +94,7 @@ namespace ndn::chunks
                  "\tInterest lifetime = {}\n"
                  "\tMax retries on timeout or Nack = {}",
                  (m_options.mustBeFresh ? "yes" : "no"),
-                 m_options.interestLifetime,
+                 m_options.interestLifetime.count(),
                  (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)));
   }
 
@@ -114,7 +115,7 @@ namespace ndn::chunks
                  "Segments received: {}\n"
                  "Transferred size: {} kB\n"
                  "Goodput: {}",
-                 timeElapsed, m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
+                 timeElapsed.count(), m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
   }
 
   std::string
@@ -140,6 +141,15 @@ namespace ndn::chunks
       return std::to_string(throughput) + " Tbit/s";
     }
     return "";
+  }
+
+  ChunksInterestsAdaptive *PipelineInterests::getChunker() const
+  {
+    return m_chunker;
+  }
+  void PipelineInterests::setChunker(ChunksInterestsAdaptive *chunker)
+  {
+    m_chunker = chunker;
   }
 
 } // namespace ndn::chunks

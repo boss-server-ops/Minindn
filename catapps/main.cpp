@@ -1,41 +1,8 @@
-/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
-/*
- * Copyright (c) 2016-2024, Regents of the University of California,
- *                          Colorado State University,
- *                          University Pierre & Marie Curie, Sorbonne University.
- *
- * This file is part of ndn-tools (Named Data Networking Essential Tools).
- * See AUTHORS.md for complete list of ndn-tools authors and contributors.
- *
- * ndn-tools is free software: you can redistribute it and/or modify it under the terms
- * of the GNU General Public License as published by the Free Software Foundation,
- * either version 3 of the License, or (at your option) any later version.
- *
- * ndn-tools is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY;
- * without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
- * PURPOSE.  See the GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License along with
- * ndn-tools, e.g., in COPYING.md file.  If not, see <http://www.gnu.org/licenses/>.
- *
- * See AUTHORS.md for complete list of ndn-cxx authors and contributors.
- *
- * @author Wentao Shang
- * @author Steve DiBenedetto
- * @author Andrea Tosatto
- * @author Davide Pesavento
- * @author Weiwei Liu
- * @author Klaus Schneider
- * @author Chavoosh Ghasemi
- */
-
 #include "consumer.hpp"
 #include "discover-version.hpp"
 #include "pipeline-interests-aimd.hpp"
-#include "pipeline-interests-cubic.hpp"
-#include "pipeline-interests-fixed.hpp"
 #include "statistics-collector.hpp"
-#include "core/version.hpp"
+#include "../core/version.hpp"
 
 #include <ndn-cxx/security/validator-null.hpp>
 #include <ndn-cxx/util/rtt-estimator.hpp>
@@ -43,14 +10,108 @@
 #include <boost/program_options/options_description.hpp>
 #include <boost/program_options/parsers.hpp>
 #include <boost/program_options/variables_map.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
+#include <spdlog/sinks/basic_file_sink.h>
 
 #include <fstream>
 #include <iostream>
+#include <spdlog/spdlog.h>
 
 namespace ndn::chunks
 {
-
     namespace po = boost::program_options;
+    namespace pt = boost::property_tree;
+
+    static void
+    usage(std::ostream &os, std::string_view programName, const po::options_description &desc)
+    {
+        os << "Usage: " << programName << " [options]\n"
+           << "\n"
+           << "Retrieve data from the specified prefix.\n"
+           << "Configuration is read from 'config.ini' file.\n"
+           << "\n"
+           << "Options:\n"
+           << "  --help, -h                   Print this help message and exit\n"
+           << "  --version, -V                Print program version and exit\n"
+           << "\n"
+           << "Configuration file parameters (config.ini):\n"
+           << "  [General]\n"
+           << "    name                       NDN name of the requested content\n"
+           << "    lifetime                   Lifetime of expressed Interests, in milliseconds\n"
+           << "    retries                    Maximum number of retries in case of Nack or timeout (-1 = no limit)\n"
+           << "    pipeline-type              Type of Interest pipeline to use; valid values are: 'aimd'\n"
+           << "    naming-convention          Encoding convention to use for name components, either 'marker' or 'typed'\n"
+           << "    quiet                      Suppress all diagnostic output, except fatal errors (true/false)\n"
+           << "    verbose                    Turn on verbose output (per segment information) (true/false)\n"
+           << "  [AdaptivePipeline]\n"
+           << "    ignore-marks               Do not reduce the window after receiving a congestion mark (true/false)\n"
+           << "    disable-cwa                Disable Conservative Window Adaptation (true/false)\n"
+           << "    init-cwnd                  Initial congestion window in segments\n"
+           << "    init-ssthresh              Initial slow start threshold in segments\n"
+           << "    rto-alpha                  Alpha value for RTO calculation\n"
+           << "    rto-beta                   Beta value for RTO calculation\n"
+           << "    rto-k                      K value for RTO calculation\n"
+           << "    min-rto                    Minimum RTO value, in milliseconds\n"
+           << "    max-rto                    Maximum RTO value, in milliseconds\n"
+           << "    log-cwnd                   Log file for congestion window stats\n"
+           << "    log-rtt                    Log file for round-trip time stats\n"
+           << "  [AIMDPipeline]\n"
+           << "    aimd-step                  Additive increase step\n"
+           << "    aimd-beta                  Multiplicative decrease factor\n"
+           << "    reset-cwnd-to-init         Reset the window to the initial value after a congestion event (true/false)\n"
+           << "\n"
+           << desc;
+    }
+
+    static bool
+    readConfigFile(const std::string &filename, Options &opts, std::string &prefix, std::string &nameConv, std::string &pipelineType, std::string &cwndPath, std::string &rttPath, std::shared_ptr<util::RttEstimator::Options> &rttEstOptions)
+    {
+        pt::ptree tree;
+        try
+        {
+            pt::read_ini(filename, tree);
+        }
+        catch (const pt::ini_parser_error &e)
+        {
+            std::cerr << "ERROR: Cannot open or parse config file: " << e.what() << "\n";
+            return false;
+        }
+
+        try
+        {
+            prefix = tree.get<std::string>("General.name");
+            opts.interestLifetime = time::milliseconds(tree.get<time::milliseconds::rep>("General.lifetime", opts.interestLifetime.count()));
+            opts.maxRetriesOnTimeoutOrNack = tree.get<int>("General.retries", opts.maxRetriesOnTimeoutOrNack);
+            pipelineType = tree.get<std::string>("General.pipeline-type", pipelineType);
+            nameConv = tree.get<std::string>("General.naming-convention", "");
+            opts.isQuiet = tree.get<bool>("General.quiet", opts.isQuiet);
+            opts.isVerbose = tree.get<bool>("General.verbose", opts.isVerbose);
+
+            opts.ignoreCongMarks = tree.get<bool>("AdaptivePipeline.ignore-marks", opts.ignoreCongMarks);
+            opts.disableCwa = tree.get<bool>("AdaptivePipeline.disable-cwa", opts.disableCwa);
+            opts.initCwnd = tree.get<double>("AdaptivePipeline.init-cwnd", opts.initCwnd);
+            opts.initSsthresh = tree.get<double>("AdaptivePipeline.init-ssthresh", opts.initSsthresh);
+            rttEstOptions->alpha = tree.get<double>("AdaptivePipeline.rto-alpha", rttEstOptions->alpha);
+            rttEstOptions->beta = tree.get<double>("AdaptivePipeline.rto-beta", rttEstOptions->beta);
+            rttEstOptions->k = tree.get<int>("AdaptivePipeline.rto-k", rttEstOptions->k);
+            rttEstOptions->minRto = time::milliseconds(tree.get<time::milliseconds::rep>("AdaptivePipeline.min-rto", time::duration_cast<time::milliseconds>(rttEstOptions->minRto).count()));
+            rttEstOptions->maxRto = time::milliseconds(tree.get<time::milliseconds::rep>("AdaptivePipeline.max-rto", time::duration_cast<time::milliseconds>(rttEstOptions->maxRto).count()));
+            cwndPath = tree.get<std::string>("AdaptivePipeline.log-cwnd", "");
+            rttPath = tree.get<std::string>("AdaptivePipeline.log-rtt", "");
+
+            opts.aiStep = tree.get<double>("AIMDPipeline.aimd-step", opts.aiStep);
+            opts.mdCoef = tree.get<double>("AIMDPipeline.aimd-beta", opts.mdCoef);
+            opts.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", opts.resetCwndToInit);
+        }
+        catch (const pt::ptree_error &e)
+        {
+            std::cerr << "ERROR: Missing or invalid configuration parameter: " << e.what() << "\n";
+            return false;
+        }
+        spdlog::debug("Finished reading configuration file");
+        return true;
+    }
 
     static int
     main(int argc, char *argv[])
@@ -58,67 +119,18 @@ namespace ndn::chunks
         const std::string programName(argv[0]);
 
         Options options;
-        std::string prefix, nameConv, pipelineType("cubic");
+        std::string prefix, nameConv, pipelineType("aimd");
         std::string cwndPath, rttPath;
         auto rttEstOptions = std::make_shared<util::RttEstimator::Options>();
         rttEstOptions->k = 8; // increased from the ndn-cxx default of 4
 
-        po::options_description basicDesc("Basic Options");
-        basicDesc.add_options()("help,h", "print this help message and exit")("fresh,f", po::bool_switch(&options.mustBeFresh),
-                                                                              "only return fresh content (set MustBeFresh on all outgoing Interests)")("lifetime,l", po::value<time::milliseconds::rep>()->default_value(options.interestLifetime.count()),
-                                                                                                                                                       "lifetime of expressed Interests, in milliseconds")("retries,r", po::value<int>(&options.maxRetriesOnTimeoutOrNack)->default_value(options.maxRetriesOnTimeoutOrNack),
-                                                                                                                                                                                                           "maximum number of retries in case of Nack or timeout (-1 = no limit)")("pipeline-type,p", po::value<std::string>(&pipelineType)->default_value(pipelineType),
-                                                                                                                                                                                                                                                                                   "type of Interest pipeline to use; valid values are: 'fixed', 'aimd', 'cubic'")("no-version-discovery,D", po::bool_switch(&options.disableVersionDiscovery),
-                                                                                                                                                                                                                                                                                                                                                                   "skip version discovery even if the name does not end with a version component")("naming-convention,N", po::value<std::string>(&nameConv),
-                                                                                                                                                                                                                                                                                                                                                                                                                                                    "encoding convention to use for name components, either 'marker' or 'typed'")("quiet,q", po::bool_switch(&options.isQuiet), "suppress all diagnostic output, except fatal errors")("verbose,v", po::bool_switch(&options.isVerbose), "turn on verbose output (per segment information")("version,V", "print program version and exit");
-
-        po::options_description fixedPipeDesc("Fixed pipeline options");
-        fixedPipeDesc.add_options()("pipeline-size,s", po::value<size_t>(&options.maxPipelineSize)->default_value(options.maxPipelineSize),
-                                    "size of the Interest pipeline");
-
-        po::options_description adaptivePipeDesc("Adaptive pipeline options (AIMD & CUBIC)");
-        adaptivePipeDesc.add_options()("ignore-marks", po::bool_switch(&options.ignoreCongMarks),
-                                       "do not reduce the window after receiving a congestion mark")("disable-cwa", po::bool_switch(&options.disableCwa),
-                                                                                                     "disable Conservative Window Adaptation (reduce the window "
-                                                                                                     "on each congestion event instead of at most once per RTT)")("init-cwnd", po::value<double>(&options.initCwnd)->default_value(options.initCwnd),
-                                                                                                                                                                  "initial congestion window in segments")("init-ssthresh", po::value<double>(&options.initSsthresh),
-                                                                                                                                                                                                           "initial slow start threshold in segments (defaults to infinity)")("rto-alpha", po::value<double>(&rttEstOptions->alpha)->default_value(rttEstOptions->alpha),
-                                                                                                                                                                                                                                                                              "alpha value for RTO calculation")("rto-beta", po::value<double>(&rttEstOptions->beta)->default_value(rttEstOptions->beta),
-                                                                                                                                                                                                                                                                                                                 "beta value for RTO calculation")("rto-k", po::value<int>(&rttEstOptions->k)->default_value(rttEstOptions->k),
-                                                                                                                                                                                                                                                                                                                                                   "k value for RTO calculation")("min-rto", po::value<time::milliseconds::rep>()->default_value(time::duration_cast<time::milliseconds>(rttEstOptions->minRto).count()),
-                                                                                                                                                                                                                                                                                                                                                                                  "minimum RTO value, in milliseconds")("max-rto", po::value<time::milliseconds::rep>()->default_value(time::duration_cast<time::milliseconds>(rttEstOptions->maxRto).count()),
-                                                                                                                                                                                                                                                                                                                                                                                                                        "maximum RTO value, in milliseconds")("log-cwnd", po::value<std::string>(&cwndPath), "log file for congestion window stats")("log-rtt", po::value<std::string>(&rttPath), "log file for round-trip time stats");
-
-        po::options_description aimdPipeDesc("AIMD pipeline options");
-        aimdPipeDesc.add_options()("aimd-step", po::value<double>(&options.aiStep)->default_value(options.aiStep),
-                                   "additive increase step")("aimd-beta", po::value<double>(&options.mdCoef)->default_value(options.mdCoef),
-                                                             "multiplicative decrease factor")("reset-cwnd-to-init", po::bool_switch(&options.resetCwndToInit),
-                                                                                               "after a congestion event, reset the window to the "
-                                                                                               "initial value instead of resetting to ssthresh");
-
-        po::options_description cubicPipeDesc("CUBIC pipeline options");
-        cubicPipeDesc.add_options()("cubic-beta", po::value<double>(&options.cubicBeta), "window decrease factor (defaults to 0.7)")("fast-conv", po::bool_switch(&options.enableFastConv), "enable fast convergence");
-
-        po::options_description visibleDesc;
-        visibleDesc.add(basicDesc)
-            .add(fixedPipeDesc)
-            .add(adaptivePipeDesc)
-            .add(aimdPipeDesc)
-            .add(cubicPipeDesc);
-
-        po::options_description hiddenDesc;
-        hiddenDesc.add_options()("name", po::value<std::string>(&prefix), "NDN name of the requested content");
-
-        po::options_description optDesc;
-        optDesc.add(visibleDesc).add(hiddenDesc);
-
-        po::positional_options_description p;
-        p.add("name", -1);
+        po::options_description visibleDesc("Options");
+        visibleDesc.add_options()("help,h", "print this help message and exit");
 
         po::variables_map vm;
         try
         {
-            po::store(po::command_line_parser(argc, argv).options(optDesc).positional(p).run(), vm);
+            po::store(po::parse_command_line(argc, argv, visibleDesc), vm);
             po::notify(vm);
         }
         catch (const po::error &e)
@@ -126,29 +138,22 @@ namespace ndn::chunks
             std::cerr << "ERROR: " << e.what() << "\n";
             return 2;
         }
-        catch (const boost::bad_any_cast &e)
-        {
-            std::cerr << "ERROR: " << e.what() << "\n";
-            return 2;
-        }
 
         if (vm.count("help") > 0)
         {
-            std::cout << "Usage: " << programName << " [options] ndn:/name\n";
-            std::cout << visibleDesc;
+            usage(std::cout, programName, visibleDesc);
             return 0;
         }
 
-        if (vm.count("version") > 0)
+        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType, cwndPath, rttPath, rttEstOptions))
         {
-            std::cout << "ndncatchunks " << tools::VERSION << "\n";
-            return 0;
+            return 2;
         }
 
         if (prefix.empty())
         {
-            std::cerr << "Usage: " << programName << " [options] ndn:/name\n";
-            std::cerr << visibleDesc;
+            std::cerr << "ERROR: Missing required parameter 'name' in configuration file\n";
+            usage(std::cerr, programName, visibleDesc);
             return 2;
         }
 
@@ -166,7 +171,6 @@ namespace ndn::chunks
             return 2;
         }
 
-        options.interestLifetime = time::milliseconds(vm["lifetime"].as<time::milliseconds::rep>());
         if (options.interestLifetime < 0_ms)
         {
             std::cerr << "ERROR: --lifetime cannot be negative\n";
@@ -185,26 +189,18 @@ namespace ndn::chunks
             return 2;
         }
 
-        if (options.maxPipelineSize < 1 || options.maxPipelineSize > 1024)
-        {
-            std::cerr << "ERROR: --pipeline-size must be between 1 and 1024\n";
-            return 2;
-        }
-
         if (rttEstOptions->k < 0)
         {
             std::cerr << "ERROR: --rto-k cannot be negative\n";
             return 2;
         }
 
-        rttEstOptions->minRto = time::milliseconds(vm["min-rto"].as<time::milliseconds::rep>());
         if (rttEstOptions->minRto < 0_ms)
         {
             std::cerr << "ERROR: --min-rto cannot be negative\n";
             return 2;
         }
 
-        rttEstOptions->maxRto = time::milliseconds(vm["max-rto"].as<time::milliseconds::rep>());
         if (rttEstOptions->maxRto < rttEstOptions->minRto)
         {
             std::cerr << "ERROR: --max-rto cannot be smaller than --min-rto\n";
@@ -215,78 +211,61 @@ namespace ndn::chunks
         {
             Face face;
             auto discover = std::make_unique<DiscoverVersion>(face, Name(prefix), options);
-            std::unique_ptr<PipelineInterests> pipeline;
+            std::unique_ptr<PipelineInterestsAimd> pipeline;
             std::unique_ptr<StatisticsCollector> statsCollector;
             std::unique_ptr<RttEstimatorWithStats> rttEstimator;
             std::ofstream statsFileCwnd;
             std::ofstream statsFileRtt;
 
-            if (pipelineType == "fixed")
+            if (options.isVerbose)
             {
-                pipeline = std::make_unique<PipelineInterestsFixed>(face, options);
+                using namespace ndn::time;
+                std::cerr << "RTT estimator parameters:\n"
+                          << "\tAlpha = " << rttEstOptions->alpha << "\n"
+                          << "\tBeta = " << rttEstOptions->beta << "\n"
+                          << "\tK = " << rttEstOptions->k << "\n"
+                          << "\tInitial RTO = " << duration_cast<milliseconds>(rttEstOptions->initialRto) << "\n"
+                          << "\tMin RTO = " << duration_cast<milliseconds>(rttEstOptions->minRto) << "\n"
+                          << "\tMax RTO = " << duration_cast<milliseconds>(rttEstOptions->maxRto) << "\n"
+                          << "\tBackoff multiplier = " << rttEstOptions->rtoBackoffMultiplier << "\n";
             }
-            else if (pipelineType == "aimd" || pipelineType == "cubic")
+            rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
+
+            pipeline = std::make_unique<PipelineInterestsAimd>(face, *rttEstimator, options);
+            std::unique_ptr<ChunksInterestsAdaptive> adapativechunks =
+                std::make_unique<ChunksInterestsAdaptive>(face, *rttEstimator, options);
+            spdlog::debug("finished creating adapativechunks");
+            if (!cwndPath.empty() || !rttPath.empty())
             {
-                if (options.isVerbose)
+                if (!cwndPath.empty())
                 {
-                    using namespace ndn::time;
-                    std::cerr << "RTT estimator parameters:\n"
-                              << "\tAlpha = " << rttEstOptions->alpha << "\n"
-                              << "\tBeta = " << rttEstOptions->beta << "\n"
-                              << "\tK = " << rttEstOptions->k << "\n"
-                              << "\tInitial RTO = " << duration_cast<milliseconds>(rttEstOptions->initialRto) << "\n"
-                              << "\tMin RTO = " << duration_cast<milliseconds>(rttEstOptions->minRto) << "\n"
-                              << "\tMax RTO = " << duration_cast<milliseconds>(rttEstOptions->maxRto) << "\n"
-                              << "\tBackoff multiplier = " << rttEstOptions->rtoBackoffMultiplier << "\n";
-                }
-                rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
-
-                std::unique_ptr<PipelineInterestsAdaptive> adaptivePipeline;
-                if (pipelineType == "aimd")
-                {
-                    adaptivePipeline = std::make_unique<PipelineInterestsAimd>(face, *rttEstimator, options);
-                }
-                else
-                {
-                    adaptivePipeline = std::make_unique<PipelineInterestsCubic>(face, *rttEstimator, options);
-                }
-
-                if (!cwndPath.empty() || !rttPath.empty())
-                {
-                    if (!cwndPath.empty())
+                    statsFileCwnd.open(cwndPath);
+                    if (statsFileCwnd.fail())
                     {
-                        statsFileCwnd.open(cwndPath);
-                        if (statsFileCwnd.fail())
-                        {
-                            std::cerr << "ERROR: failed to open '" << cwndPath << "'\n";
-                            return 4;
-                        }
+                        std::cerr << "ERROR: failed to open '" << cwndPath << "'\n";
+                        return 4;
                     }
-                    if (!rttPath.empty())
-                    {
-                        statsFileRtt.open(rttPath);
-                        if (statsFileRtt.fail())
-                        {
-                            std::cerr << "ERROR: failed to open '" << rttPath << "'\n";
-                            return 4;
-                        }
-                    }
-                    statsCollector = std::make_unique<StatisticsCollector>(*adaptivePipeline, statsFileCwnd, statsFileRtt);
                 }
-
-                pipeline = std::move(adaptivePipeline);
+                if (!rttPath.empty())
+                {
+                    statsFileRtt.open(rttPath);
+                    if (statsFileRtt.fail())
+                    {
+                        std::cerr << "ERROR: failed to open '" << rttPath << "'\n";
+                        return 4;
+                    }
+                }
+                statsCollector = std::make_unique<StatisticsCollector>(*pipeline, statsFileCwnd, statsFileRtt);
             }
-            else
-            {
-                std::cerr << "ERROR: '" << pipelineType << "' is not a valid pipeline type\n";
-                return 2;
-            }
-
+            spdlog::debug("Starting consumer");
             Consumer consumer(security::getAcceptAllValidator());
             BOOST_ASSERT(discover != nullptr);
             BOOST_ASSERT(pipeline != nullptr);
-            consumer.run(std::move(discover), std::move(pipeline));
+            consumer.run(std::move(discover), std::move(adapativechunks));
+            spdlog::info("starting processing events");
             face.processEvents();
+
+            spdlog::info("Finished processing events");
         }
         catch (const Consumer::ApplicationNackError &e)
         {
@@ -311,5 +290,9 @@ namespace ndn::chunks
 
 int main(int argc, char *argv[])
 {
+    auto m_logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
+    spdlog::set_default_logger(m_logger);
+    spdlog::set_level(spdlog::level::debug);
+    spdlog::flush_on(spdlog::level::debug);
     return ndn::chunks::main(argc, argv);
 }

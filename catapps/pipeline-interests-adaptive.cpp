@@ -24,6 +24,7 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::doRun()
   {
+    spdlog::info("PipelineInterestsAdaptive::doRun()");
     if (allSegmentsReceived())
     {
       cancel();
@@ -87,6 +88,7 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::sendInterest(uint64_t segNo, bool isRetransmission)
   {
+    spdlog::info("Send interest for segment #{}", segNo);
     if (isStopping())
       return;
 
@@ -138,6 +140,7 @@ namespace ndn::chunks
                                                  FORWARD_TO_MEM_FN(handleData),
                                                  FORWARD_TO_MEM_FN(handleNack),
                                                  FORWARD_TO_MEM_FN(handleLifetimeExpiration));
+    spdlog::debug("Interest name: {}", interest.getName().toUri());
     segInfo.timeSent = time::steady_clock::now();
     segInfo.rto = m_rttEstimator.getEstimatedRto();
 
@@ -159,11 +162,15 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::schedulePackets()
   {
+    spdlog::debug("Pipeline schedule packets");
+    spdlog::debug("In flight: {}", m_chunker->safe_getInFlight());
     BOOST_ASSERT(m_chunker->safe_getInFlight() >= 0);
     auto availableWindowSize = static_cast<int64_t>(m_chunker->safe_getWindowSize()) - m_chunker->safe_getInFlight();
-
+    spdlog::debug("Available window size: {}", availableWindowSize);
     while (availableWindowSize > 0)
     {
+      m_hasSent = true;
+      spdlog::debug("Available window size: {}", availableWindowSize);
       if (!m_retxQueue.empty())
       { // do retransmission first
         uint64_t retxSegNo = m_retxQueue.front();
@@ -178,15 +185,22 @@ namespace ndn::chunks
       }
       else
       { // send next segment
+        spdlog::debug("Send next segment not retransmission");
         sendInterest(getNextSegmentNo(), false);
       }
       availableWindowSize--;
+    }
+    if (m_hasSent == false)
+    {
+      m_scheduler.schedule(time::milliseconds(0), [this]
+                           { schedulePackets(); });
     }
   }
 
   void
   PipelineInterestsAdaptive::handleData(const Interest &interest, const Data &data)
   {
+    spdlog::info("Received data for interest {}", interest.getName().toUri());
     if (isStopping())
       return;
 
@@ -442,7 +456,7 @@ namespace ndn::chunks
                  "\tInitial slow start threshold = {}", m_options.initSsthresh,
                  "\tAdditive increase step = {}", m_options.aiStep,
                  "\tMultiplicative decrease factor = {}", m_options.mdCoef,
-                 "\tRTO check interval = {}", m_options.rtoCheckInterval,
+                 "\tRTO check interval = {}", m_options.rtoCheckInterval.count(),
                  "\tReact to congestion marks = {}", (m_options.ignoreCongMarks ? "no" : "yes"),
                  "\tConservative window adaptation = {}", (m_options.disableCwa ? "no" : "yes"),
                  "\tResetting window to {}", (m_options.resetCwndToInit ? "initial value" : "ssthresh"));

@@ -95,13 +95,13 @@ namespace ndn::chunks
         void
         printOptions() const;
 
-        /**
-         * @brief print statistics about this fetching session
-         *
-         * Subclasses can override this method to print additional stats or change the summary format
-         */
-        virtual void
-        printSummary() const;
+        // /**
+        //  * @brief print statistics about this fetching session
+        //  *
+        //  * Subclasses can override this method to print additional stats or change the summary format
+        //  */
+        // virtual void
+        // printSummary() const;
 
         /**
          * @param throughput The throughput in bits/s

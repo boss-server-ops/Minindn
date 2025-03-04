@@ -8,9 +8,10 @@
 namespace ndn::chunks
 {
     Producer::Producer(const Name &prefix, Face &face, KeyChain &keyChain, std::istream &is,
-                       const Options &opts)
+                       const Options &opts, uint64_t chunkNumber)
         : m_face(face), m_keyChain(keyChain), m_options(opts)
     {
+        spdlog::debug("Producer::Producer()");
         if (!prefix.empty() && prefix[-1].isVersion())
         {
             m_prefix = prefix.getPrefix(-1);
@@ -19,7 +20,8 @@ namespace ndn::chunks
         else
         {
             m_prefix = prefix;
-            m_versionedPrefix = Name(m_prefix).appendVersion();
+            // m_versionedPrefix = Name(m_prefix).appendVersion();
+            m_versionedPrefix = Name(m_prefix).append(std::to_string(chunkNumber));
         }
         if (!m_options.isQuiet)
         {
@@ -38,8 +40,10 @@ namespace ndn::chunks
         face.setInterestFilter(m_versionedPrefix, [this](const auto &, const auto &interest)
                                { processSegmentInterest(interest); });
         // match Interests whose name is exactly m_prefix
-        face.setInterestFilter(InterestFilter(m_prefix, ""), [this](const auto &, const auto &interest)
-                               { processSegmentInterest(interest); });
+        // face.setInterestFilter(InterestFilter(m_prefix, ""), [this](const auto &, const auto &interest)
+        //                        { processSegmentInterest(interest); });
+        // face.setInterestFilter(m_prefix, [this](const auto &, const auto &interest)
+        //                        { processSegmentInterest(interest); });
         // match discovery Interests
         auto discoveryName = MetadataObject::makeDiscoveryInterest(m_prefix).getName();
         face.setInterestFilter(discoveryName, [this](const auto &, const auto &interest)
@@ -54,7 +58,7 @@ namespace ndn::chunks
         {
             std::cerr << "Published " << m_store.size() << " Data packet" << (m_store.size() > 1 ? "s" : "")
                       << " with prefix " << m_versionedPrefix << "\n";
-            spdlog::info("Published {} Data packet(s) with prefix {}", (m_store.size() > 1 ? "s" : ""), m_versionedPrefix.toUri());
+            spdlog::info("Published {} Data packet(s) with prefix {}", m_store.size(), m_versionedPrefix.toUri());
         }
     }
 

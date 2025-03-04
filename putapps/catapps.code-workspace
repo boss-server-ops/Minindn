@@ -4,16 +4,13 @@
 			"path": "../catapps"
 		},
 		{
-			"path": "../apps"
-		},
-		{
 			"path": "../../ndn-tools/tools/chunks"
 		},
 		{
 			"path": "."
 		},
 		{
-			"path": "../experiments"
+			"path": "../../../../chunk/minindn"
 		}
 	],
 	"settings": {

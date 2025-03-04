@@ -14,7 +14,7 @@
 namespace ndn::chunks
 {
     class Pipeliner;
-    class PipelineInterests;
+    class PipelineInterestsAimd;
     class DiscoverVersion;
 
     using util::RttEstimatorWithStats;
@@ -30,7 +30,7 @@ namespace ndn::chunks
         // ScopedPendingInterestHandle interestHdl;
         Pipeliner *pipeliner;
         time::steady_clock::time_point timeSent;
-        time::nanoseconds rto;
+        // time::nanoseconds rto;
     };
 
     /**
@@ -53,7 +53,7 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace. After this
          * configuration the method run must be called to start the Chunks.
          */
-        ChunksInterestsAdaptive(Face &face, RttEstimatorWithStats &rttEstimator, const Options &opts, PipelineInterests &pipeline, DiscoverVersion &discover);
+        ChunksInterestsAdaptive(Face &face, RttEstimatorWithStats &rttEstimator, const Options &opts);
 
         ~ChunksInterestsAdaptive() override;
 
@@ -138,18 +138,18 @@ namespace ndn::chunks
         void
         printOptions() const;
 
-    private:
-        /**
-         * @brief Increase congestion window.
-         */
-        virtual void
-        increaseWindow() = 0;
+        // private:
+        //     /**
+        //      * @brief Increase congestion window.
+        //      */
+        //     virtual void
+        //     increaseWindow() = 0;
 
-        /**
-         * @brief Decrease congestion window.
-         */
-        virtual void
-        decreaseWindow() = 0;
+        //     /**
+        //      * @brief Decrease congestion window.
+        //      */
+        //     virtual void
+        //     decreaseWindow() = 0;
 
     private:
         /**
@@ -205,8 +205,8 @@ namespace ndn::chunks
         void
         cancelInFlightChunksGreaterThan(uint64_t chuNo);
 
-        PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
-                                         printSummary() const final;
+        // PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
+        //                                  printSummary() const final;
 
         PUBLIC_WITH_TESTS_ELSE_PROTECTED : static constexpr double MIN_SSTHRESH = 2.0;
 
@@ -214,7 +214,7 @@ namespace ndn::chunks
         std::atomic<double> m_ssthresh; ///< current slow start threshold
         RttEstimatorWithStats &m_rttEstimator;
 
-        // PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
+        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
         // scheduler::ScopedEventId m_checkRtoEvent;
 
         uint64_t m_highData = 0;     ///< the highest chunk number of the Data packet the consumer has received so far
@@ -244,8 +244,8 @@ namespace ndn::chunks
         std::string m_failureReason;
 
         // std::unordered_map<uint64_t, DiscoverVersion *> m_ChuDiscover;
-        // std::unordered_map<uint64_t, PipelineInterests *> m_ChuPipeline;
-        PipelineInterests *m_pipeline;
+        // std::unordered_map<uint64_t, PipelineInterestsAimd *> m_ChuPipeline;
+        PipelineInterestsAimd *m_pipeline;
         DiscoverVersion *m_discover;
     };
 
