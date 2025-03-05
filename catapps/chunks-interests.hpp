@@ -53,6 +53,26 @@ namespace ndn::chunks
         void
         cancel();
 
+        /**
+         * @return number of received chunks
+         */
+        int64_t
+        getReceivedChunks();
+
+        /**
+         * @brief other classes can call this method to increment the number of received chunks
+         */
+        void
+        receivedChunkincrement();
+
+        /**
+         * @brief print statistics about this fetching session
+         *
+         * Subclasses can override this method to print additional stats or change the summary format
+         */
+        virtual void
+        printSummary() const;
+
     protected:
         time::steady_clock::time_point
         getStartTime() const
@@ -94,14 +114,6 @@ namespace ndn::chunks
 
         void
         printOptions() const;
-
-        // /**
-        //  * @brief print statistics about this fetching session
-        //  *
-        //  * Subclasses can override this method to print additional stats or change the summary format
-        //  */
-        // virtual void
-        // printSummary() const;
 
         /**
          * @param throughput The throughput in bits/s

@@ -49,16 +49,17 @@ namespace ndn::chunks
   void
   Pipeliner::writeInOrderData()
   {
-    for (auto it = m_bufferedData.begin();
-         it != m_bufferedData.end() && it->first == m_nextToPrint;
-         it = m_bufferedData.erase(it), ++m_nextToPrint)
-    {
-      const Block &content = it->second->getContent();
-      m_outputStream.write(reinterpret_cast<const char *>(content.value()), content.value_size());
-    }
+    // for (auto it = m_bufferedData.begin();
+    //      it != m_bufferedData.end() && it->first == m_nextToPrint;
+    //      it = m_bufferedData.erase(it), ++m_nextToPrint)
+    // {
+    //   const Block &content = it->second->getContent();
+    //   m_outputStream.write(reinterpret_cast<const char *>(content.value()), content.value_size());
+    // }
     // m_pipeline->getChunker()->schedulePackets();
-    std::cerr << "Finished segments data" << std::endl;
-    spdlog::info("Finished segments data");
+    // std::cerr << "Finished segments data" << std::endl;
+    // spdlog::info("Finished segments data");
+    m_pipeline->getChunker()->receivedChunkincrement();
   }
 
 } // namespace ndn::chunks

@@ -87,6 +87,7 @@ namespace ndn::chunks
             nameConv = tree.get<std::string>("General.naming-convention", "");
             opts.isQuiet = tree.get<bool>("General.quiet", opts.isQuiet);
             opts.isVerbose = tree.get<bool>("General.verbose", opts.isVerbose);
+            opts.TotalChunksNumber = tree.get<size_t>("General.totalchunksnumber", opts.TotalChunksNumber);
 
             opts.ignoreCongMarks = tree.get<bool>("AdaptivePipeline.ignore-marks", opts.ignoreCongMarks);
             opts.disableCwa = tree.get<bool>("AdaptivePipeline.disable-cwa", opts.disableCwa);

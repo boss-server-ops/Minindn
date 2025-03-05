@@ -28,7 +28,7 @@
 
 #include "pipeline-interests-aimd.hpp"
 #include "chunks-interests-adaptive.hpp"
-
+#include <spdlog/spdlog.h>
 #include <cmath>
 
 namespace ndn::chunks
@@ -65,7 +65,7 @@ namespace ndn::chunks
     // please refer to RFC 5681, Section 3.1 for the rationale behind it
     m_chunker->safe_setSsthresh(std::max(MIN_SSTHRESH, m_chunker->safe_getWindowSize() * m_options.mdCoef));       // multiplicative decrease
     m_chunker->safe_setWindowSize(m_options.resetCwndToInit ? m_options.initCwnd : m_chunker->safe_getSsthresh()); // reset cwnd to ssthresh
-
+    spdlog::debug("The cwnd is {} after decreasing", m_chunker->safe_getWindowSize());
     emitSignal(afterCwndChange, time::steady_clock::now() - getStartTime(), m_chunker->safe_getWindowSize());
   }
 

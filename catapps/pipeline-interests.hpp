@@ -67,6 +67,12 @@ namespace ndn::chunks
       return m_startTime;
     }
 
+    void
+    setStartTime(time::steady_clock::time_point time)
+    {
+      m_startTime = time;
+    }
+
     bool
     isStopping() const
     {

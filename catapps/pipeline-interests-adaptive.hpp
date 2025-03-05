@@ -180,7 +180,7 @@ namespace ndn::chunks
     uint64_t m_recPoint = 0;     ///< the value of m_highInterest when a packet loss event occurred,
                                  ///< it remains fixed until the next packet loss event happens
 
-    // int64_t m_nInFlight = 0;      ///< # of segments in flight
+    int64_t m_nInFlight = 0;      ///< # of segments in flight
     int64_t m_nLossDecr = 0;      ///< # of window decreases caused by packet loss
     int64_t m_nMarkDecr = 0;      ///< # of window decreases caused by congestion marks
     int64_t m_nTimeouts = 0;      ///< # of timed out segments

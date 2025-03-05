@@ -30,7 +30,7 @@ namespace ndn::chunks
             m_face.shutdown(); });
         // match Interests whose name starts with m_chunkedPrefix
         spdlog::debug("m_chunkedPrefix is {}", m_chunkedPrefix.toUri());
-        face.setInterestFilter(m_chunkedPrefix, [this](const auto &, const auto &interest)
+        face.setInterestFilter(m_prefix, [this](const auto &, const auto &interest)
                                { processSegmentInterest(interest); });
 
         if (!m_options.isQuiet)
@@ -58,9 +58,11 @@ namespace ndn::chunks
             spdlog::info("Interest: {}", interest.getName().toUri());
         }
         const Name &name = interest.getName();
-        uint64_t chunkNo = name[-2].toNumber();
+        uint64_t chunkNo = std::stoi(name[-2].toUri());
+        spdlog::debug("chunkNo is {}", chunkNo);
         if (m_store[chunkNo].empty())
         {
+            spdlog::debug("temporarily no data");
             return;
         }
         BOOST_ASSERT(!m_store[chunkNo].empty());
@@ -102,7 +104,7 @@ namespace ndn::chunks
         }
     }
 
-    void Producer::segmentChunk(uint64_t chunkNumber, std::istream &is)
+    void Producer::segmentationChunk(uint64_t chunkNumber, std::istream &is)
     {
         m_chunkedPrefix = Name(m_prefix).append(std::to_string(chunkNumber));
         if (!m_options.isQuiet)

@@ -33,6 +33,7 @@ namespace ndn::chunks
     void
     Consumer::handleData(const Data &data)
     {
+        return;
     }
 
     // void

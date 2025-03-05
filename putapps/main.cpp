@@ -185,13 +185,13 @@ namespace ndn::chunks
             KeyChain keyChain;
             std::unique_ptr<std::istream> chunkzero = input.getChunk(0);
             Producer producer(prefix, face, keyChain, *chunkzero, opts, 0);
-            // for (size_t i = 1; i < chunknumber; i++)
-            // {
-            //     spdlog::debug("starting getchunk()");
-            //     std::unique_ptr<std::istream> chunk = input.getChunk(i);
-            //     spdlog::debug("Chunk number: {}", i);
-            //     producer.segmentChunk(i, *chunk);
-            // }
+            for (size_t i = 1; i < chunknumber; i++)
+            {
+                spdlog::debug("starting getchunk()");
+                std::unique_ptr<std::istream> chunk = input.getChunk(i);
+                spdlog::debug("Chunk number: {}", i);
+                producer.segmentationChunk(i, *chunk);
+            }
             producer.run();
         }
         catch (const std::exception &e)

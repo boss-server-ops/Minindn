@@ -50,7 +50,7 @@ namespace ndn::chunks
          * @param is the input stream of one chunk
          */
         void
-        segmentChunk(uint64_t chunkNumber, std::istream &is);
+        segmentationChunk(uint64_t chunkNumber, std::istream &is);
 
     private:
         // /**

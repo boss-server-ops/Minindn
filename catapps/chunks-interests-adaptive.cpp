@@ -100,60 +100,46 @@ namespace ndn::chunks
 
     void ChunksInterestsAdaptive::safe_WindowIncrement(double value)
     {
-        double current = m_cwnd.load(std::memory_order_relaxed);
-        double desired;
-        do
-        {
-            desired = current + value;
-        } while (!m_cwnd.compare_exchange_weak(
-            current, desired,
-            std::memory_order_release,
-            std::memory_order_relaxed));
+
+        m_cwnd += value;
     }
     void ChunksInterestsAdaptive::safe_WindowDecrement(double value)
     {
-        double current = m_cwnd.load(std::memory_order_relaxed);
-        double desired;
-        do
-        {
-            desired = current - value;
-        } while (!m_cwnd.compare_exchange_weak(
-            current, desired,
-            std::memory_order_release,
-            std::memory_order_relaxed));
+
+        m_cwnd -= value;
     }
     void ChunksInterestsAdaptive::safe_setWindowSize(double value)
     {
-        m_cwnd.store(value, std::memory_order_relaxed);
+        m_cwnd = value;
     }
 
     void ChunksInterestsAdaptive::safe_setSsthresh(double value)
     {
-        m_ssthresh.store(value, std::memory_order_relaxed);
+        m_ssthresh = value;
     }
 
     void ChunksInterestsAdaptive::safe_InFlightIncrement()
     {
-        m_nInFlight.fetch_add(1, std::memory_order_relaxed);
+        m_nInFlight++;
     }
     void ChunksInterestsAdaptive::safe_InFlightDecrement()
     {
-        m_nInFlight.fetch_sub(1, std::memory_order_relaxed);
+        m_nInFlight--;
     }
 
     double ChunksInterestsAdaptive::safe_getWindowSize()
     {
-        return m_cwnd.load(std::memory_order_relaxed);
+        return m_cwnd;
     }
 
     int64_t ChunksInterestsAdaptive::safe_getInFlight()
     {
-        return m_nInFlight.load(std::memory_order_relaxed);
+        return m_nInFlight;
     }
 
     double ChunksInterestsAdaptive::safe_getSsthresh()
     {
-        return m_ssthresh.load(std::memory_order_relaxed);
+        return m_ssthresh;
     }
 
 } // namespace ndn::chunks

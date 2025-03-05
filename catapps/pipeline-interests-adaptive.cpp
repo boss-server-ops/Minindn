@@ -69,6 +69,7 @@ namespace ndn::chunks
           m_nTimeouts++;
           hasTimeout = true;
           highTimeoutSeg = std::max(highTimeoutSeg, entry.first);
+          spdlog::debug("enqueue happened from checkRto");
           enqueueForRetransmission(entry.first);
         }
       }
@@ -145,6 +146,7 @@ namespace ndn::chunks
     segInfo.rto = m_rttEstimator.getEstimatedRto();
 
     m_chunker->safe_InFlightIncrement();
+    m_nInFlight++;
     m_nSent++;
 
     if (isRetransmission)
@@ -165,11 +167,17 @@ namespace ndn::chunks
     spdlog::debug("Pipeline schedule packets");
     spdlog::debug("In flight: {}", m_chunker->safe_getInFlight());
     BOOST_ASSERT(m_chunker->safe_getInFlight() >= 0);
+    BOOST_ASSERT(m_nInFlight >= 0);
     auto availableWindowSize = static_cast<int64_t>(m_chunker->safe_getWindowSize()) - m_chunker->safe_getInFlight();
     spdlog::debug("Available window size: {}", availableWindowSize);
     while (availableWindowSize > 0)
     {
-      m_hasSent = true;
+      // if it is the first time to send the interest, we need to record the starttime
+      if (m_hasSent == false)
+      {
+        setStartTime(time::steady_clock::now());
+        m_hasSent = true;
+      }
       spdlog::debug("Available window size: {}", availableWindowSize);
       if (!m_retxQueue.empty())
       { // do retransmission first
@@ -190,8 +198,10 @@ namespace ndn::chunks
       }
       availableWindowSize--;
     }
-    if (m_hasSent == false)
+    spdlog::debug("The inflight of segment is {}", m_nInFlight);
+    if (m_nInFlight == 0)
     {
+      spdlog::debug("schedule beacause of inflight is 0");
       m_scheduler.schedule(time::milliseconds(0), [this]
                            { schedulePackets(); });
     }
@@ -247,6 +257,7 @@ namespace ndn::chunks
     if (segInfo.state != SegmentState::InRetxQueue)
     {
       m_chunker->safe_InFlightDecrement();
+      m_nInFlight--;
     }
 
     // upon finding congestion mark, decrease the window size
@@ -262,6 +273,7 @@ namespace ndn::chunks
                                        // per RTT (conservative window adaptation)
           m_nMarkDecr++;
           decreaseWindow();
+          spdlog::info("Received congestion mark, value = {}, new cwnd = {}", data.getCongestionMark(), m_chunker->safe_getWindowSize());
 
           if (m_options.isVerbose)
           {
@@ -288,7 +300,7 @@ namespace ndn::chunks
          segInfo.state == SegmentState::InRetxQueue) &&
         m_retxCount.count(recvSegNo) == 0)
     {
-      auto nExpectedSamples = std::max<int64_t>((m_chunker->safe_getInFlight() + 1) >> 1, 1);
+      auto nExpectedSamples = std::max<int64_t>((m_nInFlight + 1) >> 1, 1);
       BOOST_ASSERT(nExpectedSamples > 0);
       m_rttEstimator.addMeasurement(rtt, static_cast<size_t>(nExpectedSamples));
       afterRttMeasurement({recvSegNo, rtt,
@@ -306,6 +318,10 @@ namespace ndn::chunks
       if (!m_options.isQuiet)
       {
         printSummary();
+        if (m_chunker->getReceivedChunks() == m_options.TotalChunksNumber)
+        {
+          m_chunker->printSummary();
+        }
       }
     }
     else
@@ -336,6 +352,7 @@ namespace ndn::chunks
       break;
     case lp::NackReason::CONGESTION:
       // treated the same as timeout for now
+      spdlog::debug("enqueue happened from handleNack");
       enqueueForRetransmission(segNo);
       recordTimeout(segNo);
       schedulePackets();
@@ -356,6 +373,7 @@ namespace ndn::chunks
     m_nTimeouts++;
 
     uint64_t segNo = getSegmentFromPacket(interest);
+    spdlog::debug("enqueue happened from handleLifetimeExpiration");
     enqueueForRetransmission(segNo);
     recordTimeout(segNo);
     schedulePackets();
@@ -371,6 +389,7 @@ namespace ndn::chunks
       m_recPoint = m_highInterest;
 
       decreaseWindow();
+      spdlog::info("Timeout event, new cwnd = {}", m_chunker->safe_getWindowSize());
       m_rttEstimator.backoffRto();
       m_nLossDecr++;
 
@@ -387,7 +406,9 @@ namespace ndn::chunks
   PipelineInterestsAdaptive::enqueueForRetransmission(uint64_t segNo)
   {
     BOOST_ASSERT(m_chunker->safe_getInFlight() > 0);
+    BOOST_ASSERT(m_nInFlight > 0);
     m_chunker->safe_InFlightDecrement();
+    m_nInFlight--;
     m_retxQueue.push(segNo);
     m_segmentInfo.at(segNo).state = SegmentState::InRetxQueue;
   }
@@ -406,6 +427,7 @@ namespace ndn::chunks
     {
       m_segmentInfo.erase(segNo);
       m_chunker->safe_InFlightDecrement();
+      m_nInFlight--;
 
       if (m_segmentInfo.empty())
       {
@@ -431,6 +453,7 @@ namespace ndn::chunks
       {
         it = m_segmentInfo.erase(it);
         m_chunker->safe_InFlightDecrement();
+        m_nInFlight--;
       }
       else
       {

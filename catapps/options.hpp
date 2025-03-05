@@ -40,7 +40,7 @@ namespace ndn::chunks
     bool enableFastConv = false; ///< use cubic fast convergence
 
     // Chunks pipeline options
-    size_t TotalChunksNumber = 2; ///< total number of chunks in the Aggregation process
+    size_t TotalChunksNumber = 5; ///< total number of chunks in the Aggregation process
   };
 
 } // namespace ndn::chunks

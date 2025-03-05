@@ -56,6 +56,18 @@ namespace ndn::chunks
         return m_nextChunkNo++;
     }
 
+    int64_t
+    ChunksInterests::getReceivedChunks()
+    {
+        return m_nReceived;
+    }
+
+    void
+    ChunksInterests::receivedChunkincrement()
+    {
+        m_nReceived++;
+    }
+
     // void
     // ChunksInterests::onData(const Data &data)
     // {
@@ -96,25 +108,12 @@ namespace ndn::chunks
     //                  (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)));
     // }
 
-    // void
-    // ChunksInterests::printSummary() const
-    // {
-    //     using namespace ndn::time;
-    //     duration<double, seconds::period> timeElapsed = steady_clock::now() - getStartTime();
-    //     double throughput = 8 * m_receivedSize / timeElapsed.count();
-
-    //     std::cerr << "\n\nAll chunkss have been received.\n"
-    //               << "Time elapsed: " << timeElapsed << "\n"
-    //               << "Chunkss received: " << m_nReceived << "\n"
-    //               << "Transferred size: " << m_receivedSize / 1e3 << " kB" << "\n"
-    //               << "Goodput: " << formatThroughput(throughput) << "\n";
-    //     spdlog::info("All chunkss have been received.\n"
-    //                  "Time elapsed: {}\n"
-    //                  "Chunkss received: {}\n"
-    //                  "Transferred size: {} kB\n"
-    //                  "Goodput: {}",
-    //                  timeElapsed, m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
-    // }
+    void
+    ChunksInterests::printSummary() const
+    {
+        std::cerr << "All chunks received" << std::endl;
+        spdlog::info("All chunks received");
+    }
 
     // std::string
     // ChunksInterests::formatThroughput(double throughput)

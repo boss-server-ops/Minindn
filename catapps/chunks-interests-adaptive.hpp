@@ -210,8 +210,8 @@ namespace ndn::chunks
 
         PUBLIC_WITH_TESTS_ELSE_PROTECTED : static constexpr double MIN_SSTHRESH = 2.0;
 
-        std::atomic<double> m_cwnd;     ///< current congestion window size (in chunks)
-        std::atomic<double> m_ssthresh; ///< current slow start threshold
+        double m_cwnd;     ///< current congestion window size (in chunks)
+        double m_ssthresh; ///< current slow start threshold
         RttEstimatorWithStats &m_rttEstimator;
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
@@ -222,15 +222,15 @@ namespace ndn::chunks
         uint64_t m_recPoint = 0;     ///< the value of m_highInterest when a packet loss event occurred,
         ///< it remains fixed until the next packet loss event happens
 
-        std::atomic<int64_t> m_nInFlight = 0; ///< total # of segments in flight beacause chunks master the cc
-        int64_t m_nLossDecr = 0;              ///< # of window decreases caused by packet loss
-        int64_t m_nMarkDecr = 0;              ///< # of window decreases caused by congestion marks
-        int64_t m_nTimeouts = 0;              ///< # of timed out chunks
-        int64_t m_nSkippedRetx = 0;           ///< # of chunks queued for retransmission but received before the
-                                              ///< retransmission occurred
-        int64_t m_nRetransmitted = 0;         ///< # of retransmitted chunks
-        int64_t m_nCongMarks = 0;             ///< # of data packets with congestion mark
-        int64_t m_nSent = 0;                  ///< # of interest packets sent out (including retransmissions)
+        int64_t m_nInFlight = 0;      ///< total # of segments in flight beacause chunks master the cc
+        int64_t m_nLossDecr = 0;      ///< # of window decreases caused by packet loss
+        int64_t m_nMarkDecr = 0;      ///< # of window decreases caused by congestion marks
+        int64_t m_nTimeouts = 0;      ///< # of timed out chunks
+        int64_t m_nSkippedRetx = 0;   ///< # of chunks queued for retransmission but received before the
+                                      ///< retransmission occurred
+        int64_t m_nRetransmitted = 0; ///< # of retransmitted chunks
+        int64_t m_nCongMarks = 0;     ///< # of data packets with congestion mark
+        int64_t m_nSent = 0;          ///< # of interest packets sent out (including retransmissions)
 
         std::unordered_map<uint64_t, ChunkInfo> m_chunkInfo; ///< keeps all the internal information
                                                              ///< on sent but not acked chunks

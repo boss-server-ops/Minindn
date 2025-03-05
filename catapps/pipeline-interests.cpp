@@ -29,7 +29,7 @@ namespace ndn::chunks
     m_onFailure = std::move(failureCb);
 
     // record the start time of the pipeline
-    m_startTime = time::steady_clock::now();
+    // m_startTime = time::steady_clock::now();
 
     doRun();
   }
@@ -101,11 +101,12 @@ namespace ndn::chunks
   void
   PipelineInterests::printSummary() const
   {
+    uint64_t chunkNo = std::stoi(m_prefix[-1].toUri());
     using namespace ndn::time;
     duration<double, seconds::period> timeElapsed = steady_clock::now() - getStartTime();
     double throughput = 8 * m_receivedSize / timeElapsed.count();
 
-    std::cerr << "\n\nAll segments have been received.\n"
+    std::cerr << "\n\nAll segments of chunk" << chunkNo << " have been received.\n"
               << "Time elapsed: " << timeElapsed << "\n"
               << "Segments received: " << m_nReceived << "\n"
               << "Transferred size: " << m_receivedSize / 1e3 << " kB" << "\n"
