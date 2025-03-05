@@ -1,37 +1,83 @@
 #include "InputGenerator.hpp"
-#include <iostream>
 #include <boost/property_tree/ptree.hpp>
 #include <boost/property_tree/ini_parser.hpp>
 #include <spdlog/spdlog.h>
+#include <algorithm>
 
+// 流包装器实现
+class InputGenerator::LimitedIStream : public std::istream
+{
+public:
+    LimitedIStream(std::unique_ptr<std::istream> src, size_t limit)
+    try : std
+        ::istream(new LimitedStreambuf(src->rdbuf(), limit)),
+            m_src(std::move(src)) {}
+    catch (...)
+    {
+        delete rdbuf();
+        throw;
+    }
+
+    ~LimitedIStream() noexcept override = default;
+
+private:
+    std::unique_ptr<std::istream> m_src;
+
+    class LimitedStreambuf : public std::streambuf
+    {
+    public:
+        LimitedStreambuf(std::streambuf *src, size_t limit)
+            : m_src(src), m_remaining(limit) {}
+
+    protected:
+        int_type underflow() override
+        {
+            if (m_remaining <= 0)
+                return traits_type::eof();
+            int_type ch = m_src->sbumpc();
+            if (ch != traits_type::eof())
+            {
+                m_remaining--;
+                m_current = traits_type::to_char_type(ch);
+                setg(&m_current, &m_current, &m_current + 1);
+            }
+            return ch;
+        }
+
+        std::streamsize xsgetn(char *s, std::streamsize count) override
+        {
+            count = std::min(count, static_cast<std::streamsize>(m_remaining));
+            auto read = m_src->sgetn(s, count);
+            m_remaining -= read;
+            return read;
+        }
+
+    private:
+        std::streambuf *m_src;
+        size_t m_remaining;
+        char m_current;
+    };
+};
+
+// InputGenerator 成员函数实现
 InputGenerator::InputGenerator(const std::string &configFilePath, const std::string &inputFilePath)
     : m_inputFilePath(inputFilePath), m_chunkSize(0), m_totalChunks(0), m_fileSize(0)
 {
-    // 读取配置文件
     boost::property_tree::ptree pt;
     boost::property_tree::ini_parser::read_ini(configFilePath, pt);
-
-    // 获取块大小
     m_chunkSize = pt.get<size_t>("General.chunk-size", 20);
 }
 
 size_t InputGenerator::readFile()
 {
-    // 打开输入文件
     std::ifstream inputFile(m_inputFilePath, std::ios::binary | std::ios::ate);
     if (!inputFile)
-    {
         throw std::runtime_error("Failed to open input file");
-    }
 
-    // 获取文件大小并保存
     m_fileSize = inputFile.tellg();
-    inputFile.close(); // 关闭文件，后续再打开计算偏移量
+    inputFile.close();
 
-    // 计算总块数
     m_totalChunks = (m_fileSize + m_chunkSize - 1) / m_chunkSize;
-
-    // 计算每个块的偏移量
     calculateChunkOffsets();
 
     return m_totalChunks;
@@ -40,7 +86,7 @@ size_t InputGenerator::readFile()
 void InputGenerator::calculateChunkOffsets()
 {
     m_chunkOffsets.clear();
-    for (std::streampos offset = 0; offset < m_fileSize; offset += m_chunkSize)
+    for (size_t offset = 0; offset < m_fileSize; offset += m_chunkSize)
     {
         m_chunkOffsets.push_back(offset);
     }
@@ -50,25 +96,27 @@ std::unique_ptr<std::istream> InputGenerator::getChunk(size_t chunkNumber)
 {
     if (chunkNumber >= m_totalChunks)
     {
-        spdlog::debug("Chunk number out of range");
-        throw std::out_of_range("Chunk number out of range");
+        throw std::out_of_range("Invalid chunk number");
     }
 
-    std::ifstream *inputFile = new std::ifstream(m_inputFilePath, std::ios::binary);
+    auto inputFile = std::make_unique<std::ifstream>(
+        m_inputFilePath, std::ios::binary);
     if (!inputFile->is_open())
     {
-        spdlog::debug("Failed to open input file");
         throw std::runtime_error("Failed to open input file");
     }
 
-    spdlog::debug("Starting seekg()");
     inputFile->seekg(m_chunkOffsets[chunkNumber], std::ios::beg);
     if (!inputFile->good())
     {
-        spdlog::error("seekg failed for chunk {}", chunkNumber);
         throw std::runtime_error("seekg failed");
     }
-    spdlog::debug("Finished seekg()");
 
-    return std::unique_ptr<std::istream>(inputFile);
+    // 计算实际块大小
+    const size_t actualChunkSize = (chunkNumber == m_totalChunks - 1)
+                                       ? (m_fileSize - m_chunkOffsets[chunkNumber])
+                                       : m_chunkSize;
+
+    return std::make_unique<LimitedIStream>(
+        std::move(inputFile), actualChunkSize);
 }

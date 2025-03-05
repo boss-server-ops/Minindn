@@ -178,23 +178,21 @@ namespace ndn::chunks
         try
         {
             spdlog::debug("Generating input");
-            InputGenerator input("../experiments/proconfig.ini", "./hello.txt");
+            InputGenerator input("../experiments/proconfig.ini", "../experiments/hello.txt");
             size_t chunknumber = input.readFile();
             spdlog::debug("chunk number: {}", chunknumber);
             Face face;
             KeyChain keyChain;
-            std::vector<std::unique_ptr<Producer>> producers;
-            for (size_t i = 0; i < chunknumber; i++)
-            {
-                spdlog::debug("starting getchunk()");
-                std::unique_ptr<std::istream> chunk = input.getChunk(i);
-                spdlog::debug("Chunk number: {}", i);
-                producers.push_back(std::make_unique<Producer>(prefix, face, keyChain, *chunk, opts, i));
-            }
-            if (!producers.empty())
-            {
-                producers.back()->run();
-            }
+            std::unique_ptr<std::istream> chunkzero = input.getChunk(0);
+            Producer producer(prefix, face, keyChain, *chunkzero, opts, 0);
+            // for (size_t i = 1; i < chunknumber; i++)
+            // {
+            //     spdlog::debug("starting getchunk()");
+            //     std::unique_ptr<std::istream> chunk = input.getChunk(i);
+            //     spdlog::debug("Chunk number: {}", i);
+            //     producer.segmentChunk(i, *chunk);
+            // }
+            producer.run();
         }
         catch (const std::exception &e)
         {

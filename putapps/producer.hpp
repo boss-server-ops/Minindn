@@ -44,12 +44,20 @@ namespace ndn::chunks
         void
         run();
 
-    private:
         /**
-         * @brief Respond with a metadata packet containing the versioned content name.
+         * @brief Segment the input stream and store the segments.
+         * @param chunknumber the chunk number of the input stream
+         * @param is the input stream of one chunk
          */
         void
-        processDiscoveryInterest(const Interest &interest);
+        segmentChunk(uint64_t chunkNumber, std::istream &is);
+
+    private:
+        // /**
+        //  * @brief Respond with a metadata packet containing the versioned content name.
+        //  */
+        // void
+        // processDiscoveryInterest(const Interest &interest);
 
         /**
          * @brief Respond with the requested segment of content.
@@ -57,11 +65,11 @@ namespace ndn::chunks
         void
         processSegmentInterest(const Interest &interest);
 
-        PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::vector<std::shared_ptr<Data>> m_store;
+        PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::unordered_map<uint64_t, std::vector<std::shared_ptr<Data>>> m_store;
 
     private:
         Name m_prefix;
-        Name m_versionedPrefix;
+        Name m_chunkedPrefix;
         Face &m_face;
         KeyChain &m_keyChain;
         const Options m_options;

@@ -1,30 +1,29 @@
 #ifndef IMA_INPUT_GENERATOR_HPP
 #define IMA_INPUT_GENERATOR_HPP
 
-#include <string>
-#include <vector>
 #include <fstream>
+#include <vector>
 #include <memory>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
+#include <string>
 
 class InputGenerator
 {
 public:
     InputGenerator(const std::string &configFilePath, const std::string &inputFilePath);
-
-    // read the configuration file and calculate how many chunks the file can be divided into
     size_t readFile();
-
     std::unique_ptr<std::istream> getChunk(size_t chunkNumber);
 
 private:
     std::string m_inputFilePath;
     size_t m_chunkSize;
     size_t m_totalChunks;
-    std::vector<std::streampos> m_chunkOffsets;
     size_t m_fileSize;
+    std::vector<std::streampos> m_chunkOffsets;
+
     void calculateChunkOffsets();
+
+    // 流包装器定义
+    class LimitedIStream;
 };
 
 #endif // IMA_INPUT_GENERATOR_HPP
