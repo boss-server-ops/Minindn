@@ -53,6 +53,8 @@ namespace ndn::chunks
     void
     run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<PipelineInterests> pipeline);
 
+    std::unique_ptr<PipelineInterests> m_pipeline;
+
   private:
     void
     handleData(const Data &data);
@@ -64,7 +66,7 @@ namespace ndn::chunks
     security::Validator &m_validator;
     std::ostream &m_outputStream;
     std::unique_ptr<DiscoverVersion> m_discover;
-    std::unique_ptr<PipelineInterests> m_pipeline;
+
     uint64_t m_nextToPrint = 0;
 
     PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::map<uint64_t, std::shared_ptr<const Data>> m_bufferedData;

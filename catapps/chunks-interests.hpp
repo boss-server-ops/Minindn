@@ -60,6 +60,11 @@ namespace ndn::chunks
         getReceivedChunks();
 
         /**
+         * @brief Get the size of received segments within a recording cycle.
+         */
+        size_t *getReceived();
+
+        /**
          * @brief other classes can call this method to increment the number of received chunks
          */
         void
@@ -78,6 +83,12 @@ namespace ndn::chunks
         getStartTime() const
         {
             return m_startTime;
+        }
+
+        void
+        setStartTime(time::steady_clock::time_point time)
+        {
+            m_startTime = time;
         }
 
         bool
@@ -146,7 +157,8 @@ namespace ndn::chunks
         uint64_t m_lastChunkNo = 0;                                        ///< valid only if m_hasFinalBlockId == true
         int64_t m_nReceived = 0;                                           ///< number of chunks received
         size_t m_receivedSize = 0;                                         ///< size of received data in bytes
-
+        time::steady_clock::time_point m_timeStamp;                        ///< used to record the throughput
+        size_t *m_received = nullptr;                                      ///< size of segments within a recording cycle
     private:
         DataCallback m_onData;
         FailureCallback m_onFailure;

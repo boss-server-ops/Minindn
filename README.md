@@ -19,7 +19,7 @@ The first release of Mini-NDN is developed by members of the NSF-sponsored NDN p
 Mini-NDN is open to contribution from the public.
 For more details, please refer to [AUTHORS.rst](AUTHORS.rst).
 Bug reports and feedback are highly appreciated and can be made through our
-[Redmine site](http://redmine.named-data.net/projects/mini-ndn) and the
+[Redmine site](http://redmine.nadmed-data.net/projects/mini-ndn) and the
 [mini-ndn mailing list](http://www.lists.cs.ucla.edu/mailman/listinfo/mini-ndn).
 
 ### Documentation
@@ -30,3 +30,7 @@ The documentation can be built using:
     ./docs/build.sh
 
 and is available under `docs/_build/html`.
+
+
+### cat and put apps
+1. 检查链路丢包，积压数据包等情况  pro0 tc -s qdisc show dev pro0-eth0 con0 tc -s qdisc show dev con0-eth0

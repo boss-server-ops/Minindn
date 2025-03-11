@@ -26,7 +26,7 @@ namespace ndn::chunks
     // Adaptive pipeline common options
     double initCwnd = 2.0;                                    ///< initial congestion window size
     double initSsthresh = std::numeric_limits<double>::max(); ///< initial slow start threshold
-    time::milliseconds rtoCheckInterval{10};                  ///< interval for checking retransmission timer
+    time::milliseconds rtoCheckInterval{1};                   ///< interval for checking retransmission timer
     bool ignoreCongMarks = false;                             ///< disable window decrease after receiving congestion mark
     bool disableCwa = false;                                  ///< disable conservative window adaptation
 
@@ -41,6 +41,9 @@ namespace ndn::chunks
 
     // Chunks pipeline options
     size_t TotalChunksNumber = 5; ///< total number of chunks in the Aggregation process
+
+    // Recording cycle
+    time::milliseconds recordingCycle = time::milliseconds(1000);
   };
 
 } // namespace ndn::chunks

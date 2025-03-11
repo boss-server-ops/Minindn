@@ -89,7 +89,6 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::sendInterest(uint64_t segNo, bool isRetransmission)
   {
-    spdlog::info("Send interest for segment #{}", segNo);
     if (isStopping())
       return;
 
@@ -98,6 +97,8 @@ namespace ndn::chunks
 
     if (!isRetransmission && m_hasFailure)
       return;
+
+    spdlog::info("Send interest for segment #{}", segNo);
 
     if (m_options.isVerbose)
     {
@@ -172,12 +173,12 @@ namespace ndn::chunks
     spdlog::debug("Available window size: {}", availableWindowSize);
     while (availableWindowSize > 0)
     {
-      // if it is the first time to send the interest, we need to record the starttime
-      if (m_hasSent == false)
-      {
-        setStartTime(time::steady_clock::now());
-        m_hasSent = true;
-      }
+      // // if it is the first time to send the interest, we need to record the starttime
+      // if (m_hasSent == false)
+      // {
+      //   setStartTime(time::steady_clock::now());
+      //   m_hasSent = true;
+      // }
       spdlog::debug("Available window size: {}", availableWindowSize);
       if (!m_retxQueue.empty())
       { // do retransmission first
@@ -198,12 +199,37 @@ namespace ndn::chunks
       }
       availableWindowSize--;
     }
-    spdlog::debug("The inflight of segment is {}", m_nInFlight);
+    // spdlog::debug("The inflight of segment is {}", m_nInFlight);
     if (m_nInFlight == 0)
     {
+      if (m_scheduleEvent)
+      {
+        m_scheduleEvent.cancel();
+      }
       spdlog::debug("schedule beacause of inflight is 0");
-      m_scheduler.schedule(time::milliseconds(0), [this]
-                           { schedulePackets(); });
+      m_scheduleEvent = m_scheduler.schedule(time::milliseconds(0), [this]
+                                             { schedulePackets(); });
+    }
+    wait();
+  }
+
+  void
+  PipelineInterestsAdaptive::wait()
+  {
+    spdlog::info("Pipeline wait and m_hasFinalBlockId is {}", m_hasFinalBlockId);
+    spdlog::info("m_nSent is {} and m_nRetransimitted is {} and m_lastSegmentNo is{}", m_nSent, m_nRetransmitted, m_lastSegmentNo);
+    if (m_waitEvent)
+    {
+      m_waitEvent.cancel();
+    }
+    if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
+    {
+      m_waitEvent = m_scheduler.schedule(time::milliseconds(0), [this]
+                                         { wait(); });
+    }
+    else
+    {
+      m_canschedulenext = true;
     }
   }
 
@@ -217,6 +243,9 @@ namespace ndn::chunks
     // Interest was expressed with CanBePrefix=false
     BOOST_ASSERT(data.getName().equals(interest.getName()));
 
+    auto &received = *(m_chunker->getReceived());
+    received += data.getContent().value_size();
+    spdlog::debug("Received {} bytes, total received: {}", data.getContent().value_size(), received);
     if (!m_hasFinalBlockId && data.getFinalBlock())
     {
       m_lastSegmentNo = data.getFinalBlock()->toSegment();
@@ -273,7 +302,6 @@ namespace ndn::chunks
                                        // per RTT (conservative window adaptation)
           m_nMarkDecr++;
           decreaseWindow();
-          spdlog::info("Received congestion mark, value = {}, new cwnd = {}", data.getCongestionMark(), m_chunker->safe_getWindowSize());
 
           if (m_options.isVerbose)
           {

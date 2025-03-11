@@ -7,6 +7,7 @@ This file is based on the part of ndn-tools chunks
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <spdlog/spdlog.h>
+#include "InputGenerator.hpp"
 
 #ifdef UNIT_TEST
 #define PUBLIC_WITH_TESTS_ELSE_PRIVATE public
@@ -35,8 +36,8 @@ namespace ndn::chunks
          * @param prefix prefix used to publish data; if the last component is not a valid
          *               version number, the current system time is used as version number.
          */
-        Producer(const Name &prefix, Face &face, KeyChain &keyChain, std::istream &is,
-                 const Options &opts, uint64_t chunkNumber);
+        Producer(const Name &prefix, Face &face, KeyChain &keyChain,
+                 const Options &opts, uint64_t chunkNumber, InputGenerator &input, uint64_t totalChunkNumber);
 
         /**
          * @brief Run the producer.
@@ -50,7 +51,7 @@ namespace ndn::chunks
          * @param is the input stream of one chunk
          */
         void
-        segmentationChunk(uint64_t chunkNumber, std::istream &is);
+        segmentationChunk(uint64_t chunkNumber);
 
     private:
         // /**
@@ -73,8 +74,10 @@ namespace ndn::chunks
         Face &m_face;
         KeyChain &m_keyChain;
         const Options m_options;
-
+        uint64_t m_totalChunkNumber;
         // Below is the new data structure for IMAgg
+        InputGenerator &m_input;
+        std::unordered_map<uint64_t, uint64_t> m_nSentSegments;
 
     public:
         spdlog::logger *logger;

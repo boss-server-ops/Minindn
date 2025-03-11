@@ -172,8 +172,8 @@ namespace ndn::chunks
 
         // auto m_logger = spdlog::basic_logger_mt("producer_logger", logFile);
         // spdlog::set_default_logger(m_logger);
-        // spdlog::set_level(spdlog::level::from_str(logLevel));
-        // spdlog::flush_on(spdlog::level::from_str(logLevel));
+        spdlog::set_level(spdlog::level::from_str(logLevel));
+        spdlog::flush_on(spdlog::level::from_str(logLevel));
 
         try
         {
@@ -183,15 +183,15 @@ namespace ndn::chunks
             spdlog::debug("chunk number: {}", chunknumber);
             Face face;
             KeyChain keyChain;
-            std::unique_ptr<std::istream> chunkzero = input.getChunk(0);
-            Producer producer(prefix, face, keyChain, *chunkzero, opts, 0);
-            for (size_t i = 1; i < chunknumber; i++)
-            {
-                spdlog::debug("starting getchunk()");
-                std::unique_ptr<std::istream> chunk = input.getChunk(i);
-                spdlog::debug("Chunk number: {}", i);
-                producer.segmentationChunk(i, *chunk);
-            }
+            // std::unique_ptr<std::istream> chunkzero = input.getChunk(0);
+            Producer producer(prefix, face, keyChain, opts, 0, input, chunknumber);
+            // for (size_t i = 1; i < chunknumber; i++)
+            // {
+            //     spdlog::debug("starting getchunk()");
+            //     std::unique_ptr<std::istream> chunk = input.getChunk(i);
+            //     spdlog::debug("Chunk number: {}", i);
+            //     producer.segmentationChunk(i, *chunk);
+            // }
             producer.run();
         }
         catch (const std::exception &e)

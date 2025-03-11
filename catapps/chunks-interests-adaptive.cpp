@@ -10,6 +10,7 @@
 #include <iomanip>
 #include <iostream>
 #include <thread>
+#include <fstream>
 
 namespace ndn::chunks
 {
@@ -66,20 +67,133 @@ namespace ndn::chunks
         ChunkInfo &chuInfo = m_chunkInfo[chuNo];
         chuInfo.pipeliner = new Pipeliner(security::getAcceptAllValidator());
         Name namewithchuno;
-        m_scheduler.schedule(time::milliseconds(0), [this, chuNo, namewithchuno]() mutable
-                             {
+
         spdlog::debug("Lambda expression executed for chunk #{}", chuNo);
-        auto& chuInfo = m_chunkInfo[chuNo];
+        // auto &chuInfo = m_chunkInfo[chuNo];
         namewithchuno = Name(m_prefix).append(std::to_string(chuNo));
         spdlog::debug("Name :{}", namewithchuno.toUri());
         auto discover = std::make_unique<DiscoverVersion>(m_face, namewithchuno, m_options);
         auto pipeline = std::make_unique<PipelineInterestsAimd>(m_face, m_rttEstimator, m_options);
         pipeline->setChunker(this);
-        chuInfo.pipeliner->run(std::move(discover), std::move(pipeline)); });
-
+        chuInfo.pipeliner->run(std::move(discover), std::move(pipeline));
         chuInfo.timeSent = time::steady_clock::now();
         m_nSent++;
         m_highInterest = chuNo;
+        spdlog::debug("Finished sending interest for chunk #{}", chuNo);
+
+        // m_scheduler.schedule(time::milliseconds(0), [this, &pipeline]() mutable
+        // {
+
+        // }
+        // while (pipeline->m_canschedulenext)
+        // {
+
+        //     sendInterest(getNextChunkNo());
+        // }
+
+        checkSendNext(chuNo);
+    }
+
+    void
+    ChunksInterestsAdaptive::checkSendNext(uint64_t chuNo)
+    {
+
+        spdlog::debug("Check send next");
+        ChunkInfo &chuInfo = m_chunkInfo[chuNo];
+        if (m_checkEvent)
+        {
+            m_checkEvent.cancel();
+        }
+        if (chuInfo.pipeliner->m_pipeline->m_canschedulenext)
+        {
+            spdlog::debug("Send next chunk");
+            sendInterest(getNextChunkNo());
+        }
+        else
+        {
+            spdlog::debug("Schedule next check");
+            m_checkEvent = m_scheduler.schedule(time::milliseconds(0), [this, chuNo]
+                                                { checkSendNext(chuNo); });
+        }
+        recordThroughput();
+    }
+
+    void
+    ChunksInterestsAdaptive::recordThroughput()
+    {
+        static bool firstTime = true;
+        time::steady_clock::time_point now = time::steady_clock::now();
+        using namespace ndn::time;
+        duration<double, milliseconds::period> timeElapsed = now - m_timeStamp;
+        if (timeElapsed > m_options.recordingCycle)
+        {
+            double throughput = 8 * (*m_received) / (m_options.recordingCycle.count() / 1000.0);
+            *m_received = 0;
+
+            // 读取拓扑文件中的参数
+            std::ifstream topoFile("../../topologies/Linetest.conf");
+            std::string line;
+            std::string filename;
+            if (topoFile.is_open())
+            {
+                while (std::getline(topoFile, line))
+                {
+                    if (line.find("con0:pro0") != std::string::npos)
+                    {
+                        std::istringstream iss(line);
+                        std::string token;
+                        std::vector<std::string> params;
+                        while (iss >> token)
+                        {
+                            params.push_back(token);
+                        }
+                        if (params.size() >= 5)
+                        {
+                            std::string bw = params[1].substr(params[1].find('=') + 1);
+                            std::string delay = params[2].substr(params[2].find('=') + 1);
+                            std::string max_queue_size = params[3].substr(params[3].find('=') + 1);
+                            std::string loss = params[4].substr(params[4].find('=') + 1);
+
+                            // 读取proconfig.ini文件中的chunk-size
+                            std::ifstream proconfigFile("../../chunkworkdir/experiments/conconfig.ini");
+                            std::string chunkSize;
+                            if (proconfigFile.is_open())
+                            {
+                                std::string configLine;
+                                while (std::getline(proconfigFile, configLine))
+                                {
+                                    if (configLine.find("chunk-size") != std::string::npos)
+                                    {
+                                        chunkSize = configLine.substr(configLine.find('=') + 1);
+                                        break;
+                                    }
+                                }
+                                proconfigFile.close();
+                            }
+
+                            filename = "throughput_bw" + bw + "_delay" + delay + "_queue" + max_queue_size + "_loss" + loss + "_chunksize" + chunkSize + ".txt";
+                        }
+                        break;
+                    }
+                }
+                topoFile.close();
+            }
+
+            std::ofstream logFile;
+            if (firstTime)
+            {
+                logFile.open("./logs/" + filename, std::ios_base::trunc);
+                firstTime = false;
+            }
+            else
+            {
+                logFile.open("./logs/" + filename, std::ios_base::app);
+            }
+            logFile << duration<double, milliseconds::period>(m_timeStamp - getStartTime())
+                    << ": " << formatThroughput(throughput) << "\n";
+            logFile.close();
+            m_timeStamp = now;
+        }
     }
 
     void
@@ -92,10 +206,11 @@ namespace ndn::chunks
         // {
         // availableWindowSize = static_cast<int64_t>(safe_getWindowSize()) - safe_getInFlight();
         // }
-        for (int i = 0; i < m_options.TotalChunksNumber; i++)
-        {
-            sendInterest(getNextChunkNo());
-        }
+        // for (int i = 0; i < m_options.TotalChunksNumber; i++)
+        // {
+
+        sendInterest(getNextChunkNo());
+        // }
     }
 
     void ChunksInterestsAdaptive::safe_WindowIncrement(double value)

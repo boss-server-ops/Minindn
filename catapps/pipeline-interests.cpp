@@ -29,7 +29,7 @@ namespace ndn::chunks
     m_onFailure = std::move(failureCb);
 
     // record the start time of the pipeline
-    // m_startTime = time::steady_clock::now();
+    m_startTime = time::steady_clock::now();
 
     doRun();
   }
@@ -63,7 +63,6 @@ namespace ndn::chunks
   {
     m_nReceived++;
     m_receivedSize += data.getContent().value_size();
-
     m_onData(data);
   }
 
@@ -111,12 +110,12 @@ namespace ndn::chunks
               << "Segments received: " << m_nReceived << "\n"
               << "Transferred size: " << m_receivedSize / 1e3 << " kB" << "\n"
               << "Goodput: " << formatThroughput(throughput) << "\n";
-    spdlog::info("All segments have been received.\n"
+    spdlog::info("All segments of chunk {} have been received.\n"
                  "Time elapsed: {}\n"
                  "Segments received: {}\n"
                  "Transferred size: {} kB\n"
                  "Goodput: {}",
-                 timeElapsed.count(), m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
+                 chunkNo, timeElapsed.count(), m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
   }
 
   std::string

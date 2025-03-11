@@ -163,6 +163,11 @@ namespace ndn::chunks
     void
     cancelInFlightSegmentsGreaterThan(uint64_t segNo);
 
+    /**
+     * @brief wait until all the requests have been sent
+     */
+    void wait();
+
     PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
                                      printSummary() const final;
 
@@ -174,6 +179,8 @@ namespace ndn::chunks
 
     PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
     scheduler::ScopedEventId m_checkRtoEvent;
+    scheduler::ScopedEventId m_waitEvent;
+    scheduler::ScopedEventId m_scheduleEvent;
 
     uint64_t m_highData = 0;     ///< the highest segment number of the Data packet the consumer has received so far
     uint64_t m_highInterest = 0; ///< the highest segment number of the Interests the consumer has sent so far
@@ -201,9 +208,11 @@ namespace ndn::chunks
     uint64_t m_failedSegNo = 0;
     std::string m_failureReason;
 
+    // bool m_firstarrived = false;
+
     // ChunksInterestsAdaptive *m_chunker; ///< point to the current chunker
 
-    bool m_hasSent = false; ///< indicates if the pipeline has sent any Interest
+    // bool m_hasSent = false; ///< indicates if the pipeline has sent any Interest
   };
 
 } // namespace ndn::chunks

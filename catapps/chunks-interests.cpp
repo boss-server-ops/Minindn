@@ -30,6 +30,10 @@ namespace ndn::chunks
         // record the start time of the chunks
         m_startTime = time::steady_clock::now();
 
+        // record the first timestamp
+        m_timeStamp = time::steady_clock::now();
+
+        m_received = new size_t(0);
         doRun();
     }
 
@@ -60,6 +64,11 @@ namespace ndn::chunks
     ChunksInterests::getReceivedChunks()
     {
         return m_nReceived;
+    }
+
+    uint64_t *ChunksInterests::getReceived()
+    {
+        return m_received;
     }
 
     void
@@ -115,29 +124,29 @@ namespace ndn::chunks
         spdlog::info("All chunks received");
     }
 
-    // std::string
-    // ChunksInterests::formatThroughput(double throughput)
-    // {
-    //     int pow = 0;
-    //     while (throughput >= 1000.0 && pow < 4)
-    //     {
-    //         throughput /= 1000.0;
-    //         pow++;
-    //     }
-    //     switch (pow)
-    //     {
-    //     case 0:
-    //         return std::to_string(throughput) + " bit/s";
-    //     case 1:
-    //         return std::to_string(throughput) + " kbit/s";
-    //     case 2:
-    //         return std::to_string(throughput) + " Mbit/s";
-    //     case 3:
-    //         return std::to_string(throughput) + " Gbit/s";
-    //     case 4:
-    //         return std::to_string(throughput) + " Tbit/s";
-    //     }
-    //     return "";
-    // }
+    std::string
+    ChunksInterests::formatThroughput(double throughput)
+    {
+        int pow = 0;
+        while (throughput >= 1000.0 && pow < 4)
+        {
+            throughput /= 1000.0;
+            pow++;
+        }
+        switch (pow)
+        {
+        case 0:
+            return std::to_string(throughput) + " bit/s";
+        case 1:
+            return std::to_string(throughput) + " kbit/s";
+        case 2:
+            return std::to_string(throughput) + " Mbit/s";
+        case 3:
+            return std::to_string(throughput) + " Gbit/s";
+        case 4:
+            return std::to_string(throughput) + " Tbit/s";
+        }
+        return "";
+    }
 
 } // namespace ndn::chunks

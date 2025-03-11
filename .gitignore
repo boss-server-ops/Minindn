@@ -18,5 +18,4 @@ dl
 .vagrant
 
 
-#ignore executable files without extension
-!*.*
+chunkworkdir/

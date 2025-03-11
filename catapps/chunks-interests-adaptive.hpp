@@ -2,6 +2,7 @@
 #define IMAgg_CHUNKS_INTERESTS_ADAPTIVE_HPP
 
 #include "chunks-interests.hpp"
+#include "pipeline-interests-adaptive.hpp"
 
 #include <ndn-cxx/util/rtt-estimator.hpp>
 #include <ndn-cxx/util/scheduler.hpp>
@@ -205,6 +206,15 @@ namespace ndn::chunks
         void
         cancelInFlightChunksGreaterThan(uint64_t chuNo);
 
+        /**
+         * @brief Check if the next chunk can be sent.
+         */
+        void
+        checkSendNext(uint64_t chuNo);
+
+        void
+        recordThroughput();
+
         // PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
         //                                  printSummary() const final;
 
@@ -215,6 +225,7 @@ namespace ndn::chunks
         RttEstimatorWithStats &m_rttEstimator;
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
+        scheduler::ScopedEventId m_checkEvent;
         // scheduler::ScopedEventId m_checkRtoEvent;
 
         uint64_t m_highData = 0;     ///< the highest chunk number of the Data packet the consumer has received so far

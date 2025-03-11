@@ -7,9 +7,9 @@
 #include <boost/lexical_cast.hpp>
 namespace ndn::chunks
 {
-    Producer::Producer(const Name &prefix, Face &face, KeyChain &keyChain, std::istream &is,
-                       const Options &opts, uint64_t chunkNumber)
-        : m_face(face), m_keyChain(keyChain), m_options(opts)
+    Producer::Producer(const Name &prefix, Face &face, KeyChain &keyChain,
+                       const Options &opts, uint64_t chunkNumber, InputGenerator &input, uint64_t totalChunkNumber)
+        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_input(input)
     {
         spdlog::debug("Producer::Producer()");
 
@@ -20,9 +20,9 @@ namespace ndn::chunks
             std::cerr << "Loading input ...\n";
             spdlog::info("Loading input ...");
         }
-        Segmenter segmenter(m_keyChain, m_options.signingInfo);
-        // All the data packets are segmented and stored in m_store
-        m_store[chunkNumber] = segmenter.segment(is, m_chunkedPrefix, m_options.maxSegmentSize, m_options.freshnessPeriod);
+        // Segmenter segmenter(m_keyChain, m_options.signingInfo);
+        // // All the data packets are segmented and stored in m_store
+        // m_store[chunkNumber] = segmenter.segment(is, m_chunkedPrefix, m_options.maxSegmentSize, m_options.freshnessPeriod);
         // register m_prefix without Interest handler
         m_face.registerPrefix(m_prefix, nullptr, [this](const Name &prefix, const auto &reason)
                               {            
@@ -60,10 +60,12 @@ namespace ndn::chunks
         const Name &name = interest.getName();
         uint64_t chunkNo = std::stoi(name[-2].toUri());
         spdlog::debug("chunkNo is {}", chunkNo);
+
         if (m_store[chunkNo].empty())
         {
-            spdlog::debug("temporarily no data");
-            return;
+            // spdlog::debug("temporarily no data");
+            // return;
+            segmentationChunk(chunkNo);
         }
         BOOST_ASSERT(!m_store[chunkNo].empty());
 
@@ -76,12 +78,15 @@ namespace ndn::chunks
             if (segmentNo < m_store[chunkNo].size())
             {
                 data = m_store[chunkNo][segmentNo];
+                m_nSentSegments[chunkNo]++;
             }
         }
         else if (interest.matchesData(*m_store[chunkNo][0]))
         {
+
             // unspecified version or segment number, return first segment
             data = m_store[chunkNo][0];
+            m_nSentSegments[chunkNo] = 1;
         }
 
         if (data != nullptr)
@@ -92,6 +97,23 @@ namespace ndn::chunks
                 spdlog::info("Data: {}", (*data).getName().toUri());
             }
             m_face.put(*data);
+
+            // check all the segments are sent
+            const Name &dataName = data->getName();
+            if (dataName.size() > m_chunkedPrefix.size() && dataName[-1].isSegment())
+            {
+                uint64_t sentSegments = m_nSentSegments[chunkNo];
+                auto it = m_store.find(chunkNo);
+                if (it != m_store.end())
+                {
+                    size_t totalSegments = it->second.size();
+                    if (sentSegments == totalSegments)
+                    {
+                        m_store.erase(chunkNo);
+                        spdlog::debug("Cleared chunk {} after sending {} segments ", chunkNo, sentSegments);
+                    }
+                }
+            }
         }
         else
         {
@@ -104,8 +126,9 @@ namespace ndn::chunks
         }
     }
 
-    void Producer::segmentationChunk(uint64_t chunkNumber, std::istream &is)
+    void Producer::segmentationChunk(uint64_t chunkNumber)
     {
+        std::unique_ptr<std::istream> is = m_input.getChunk(chunkNumber);
         m_chunkedPrefix = Name(m_prefix).append(std::to_string(chunkNumber));
         if (!m_options.isQuiet)
         {
@@ -114,7 +137,7 @@ namespace ndn::chunks
         }
         Segmenter segmenter(m_keyChain, m_options.signingInfo);
         // All the data packets are segmented and stored in m_store
-        m_store[chunkNumber] = segmenter.segment(is, m_chunkedPrefix, m_options.maxSegmentSize, m_options.freshnessPeriod);
+        m_store[chunkNumber] = segmenter.segment(*is, m_chunkedPrefix, m_options.maxSegmentSize, m_options.freshnessPeriod);
         if (!m_options.isQuiet)
         {
             std::cerr << "Published " << m_store[chunkNumber].size() << " Data packet" << (m_store[chunkNumber].size() > 1 ? "s" : "")

@@ -10,7 +10,7 @@
 			"path": "."
 		},
 		{
-			"path": "../../../../chunk/minindn"
+			"path": "../chunkworkdir"
 		}
 	],
 	"settings": {

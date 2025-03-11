@@ -60,6 +60,8 @@ namespace ndn::chunks
      */
     ChunksInterestsAdaptive *getChunker() const;
 
+    bool m_canschedulenext = false; ///< indicates if the chunker can schedule the next chunk
+
   protected:
     time::steady_clock::time_point
     getStartTime() const

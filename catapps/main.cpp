@@ -104,6 +104,8 @@ namespace ndn::chunks
             opts.aiStep = tree.get<double>("AIMDPipeline.aimd-step", opts.aiStep);
             opts.mdCoef = tree.get<double>("AIMDPipeline.aimd-beta", opts.mdCoef);
             opts.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", opts.resetCwndToInit);
+
+            opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
         }
         catch (const pt::ptree_error &e)
         {
@@ -120,7 +122,7 @@ namespace ndn::chunks
         const std::string programName(argv[0]);
 
         Options options;
-        std::string prefix, nameConv, pipelineType("aimd");
+        std::string prefix, nameConv, pipelineType("aimd"), logLevel, logFile;
         std::string cwndPath, rttPath;
         auto rttEstOptions = std::make_shared<util::RttEstimator::Options>();
         rttEstOptions->k = 8; // increased from the ndn-cxx default of 4
@@ -262,6 +264,8 @@ namespace ndn::chunks
             Consumer consumer(security::getAcceptAllValidator());
             BOOST_ASSERT(discover != nullptr);
             BOOST_ASSERT(pipeline != nullptr);
+            spdlog::set_level(spdlog::level::from_str(logLevel));
+            spdlog::flush_on(spdlog::level::from_str(logLevel));
             consumer.run(std::move(discover), std::move(adapativechunks));
             spdlog::info("starting processing events");
             face.processEvents();
