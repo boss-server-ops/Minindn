@@ -105,17 +105,17 @@ namespace ndn::chunks
     duration<double, seconds::period> timeElapsed = steady_clock::now() - getStartTime();
     double throughput = 8 * m_receivedSize / timeElapsed.count();
 
-    std::cerr << "\n\nAll segments of chunk" << chunkNo << " have been received.\n"
+    std::cerr << "\n\nAll segments of chunk" << chunkNo << " of flow " << m_prefix[0].toUri() << " have been received.\n"
               << "Time elapsed: " << timeElapsed << "\n"
               << "Segments received: " << m_nReceived << "\n"
               << "Transferred size: " << m_receivedSize / 1e3 << " kB" << "\n"
               << "Goodput: " << formatThroughput(throughput) << "\n";
-    spdlog::info("All segments of chunk {} have been received.\n"
+    spdlog::info("All segments of chunk {} of flow {} have been received.\n"
                  "Time elapsed: {}\n"
                  "Segments received: {}\n"
                  "Transferred size: {} kB\n"
                  "Goodput: {}",
-                 chunkNo, timeElapsed.count(), m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
+                 chunkNo, m_prefix[0].toUri(), timeElapsed.count(), m_nReceived, m_receivedSize / 1e3, formatThroughput(throughput));
   }
 
   std::string
@@ -150,6 +150,11 @@ namespace ndn::chunks
   void PipelineInterests::setChunker(ChunksInterestsAdaptive *chunker)
   {
     m_chunker = chunker;
+  }
+
+  Options PipelineInterests::getOptions() const
+  {
+    return m_options;
   }
 
 } // namespace ndn::chunks

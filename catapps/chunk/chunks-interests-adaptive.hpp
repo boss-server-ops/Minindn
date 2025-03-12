@@ -2,7 +2,7 @@
 #define IMAgg_CHUNKS_INTERESTS_ADAPTIVE_HPP
 
 #include "chunks-interests.hpp"
-#include "pipeline-interests-adaptive.hpp"
+#include "../pipeline/pipeline-interests-adaptive.hpp"
 
 #include <ndn-cxx/util/rtt-estimator.hpp>
 #include <ndn-cxx/util/scheduler.hpp>

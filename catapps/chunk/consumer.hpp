@@ -1,7 +1,7 @@
 #ifndef IMAgg_CONSUMER_HPP
 #define IMAgg_CONSUMER_HPP
 
-#include "discover-version.hpp"
+#include "../pipeline/discover-version.hpp"
 #include "chunks-interests.hpp"
 #include "chunks-interests-adaptive.hpp"
 
@@ -52,11 +52,11 @@ namespace ndn::chunks
          * @brief Run the consumer
          */
         void
-        run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<ChunksInterestsAdaptive> chunks);
+        run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<ChunksInterests> chunks);
 
     private:
         void
-        handleData(const Data &data);
+        handleData();
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
                                          writeInOrderData();

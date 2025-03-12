@@ -1,4 +1,5 @@
-#include "consumer.hpp"
+#include "splitter.hpp"
+#include "split-interests.hpp"
 
 #include <ndn-cxx/util/exception.hpp>
 #include <spdlog/spdlog.h>
@@ -6,38 +7,38 @@
 namespace ndn::chunks
 {
 
-    Consumer::Consumer(security::Validator &validator, std::ostream &os)
+    Splitter::Splitter(security::Validator &validator, std::ostream &os)
         : m_validator(validator), m_outputStream(os)
     {
     }
 
     void
-    Consumer::run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<ChunksInterestsAdaptive> chunks)
+    Splitter::run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<SplitInterests> splits)
     {
         m_discover = std::move(discover);
-        m_chunks = std::move(chunks);
+        m_split = std::move(splits);
         m_nextToPrint = 0;
         m_bufferedData.clear();
 
         m_discover->onDiscoverySuccess.connect([this](const Name &versionedName)
-                                               { m_chunks->run(versionedName,
-                                                               FORWARD_TO_MEM_FN(handleData),
-                                                               [](const std::string &msg)
-                                                               { NDN_THROW(std::runtime_error(msg)); }); });
+                                               { m_split->run(versionedName,
+                                                              FORWARD_TO_MEM_FN(handleData),
+                                                              [](const std::string &msg)
+                                                              { NDN_THROW(std::runtime_error(msg)); }); });
         m_discover->onDiscoveryFailure.connect([](const std::string &msg)
                                                { NDN_THROW(std::runtime_error(msg)); });
         m_discover->run();
-        spdlog::debug("Consumer::run() finished");
+        spdlog::debug("Splitter::run() finished");
     }
 
     void
-    Consumer::handleData(const Data &data)
+    Splitter::handleData(const Data &data)
     {
         return;
     }
 
     // void
-    // Consumer::writeInOrderData()
+    // Splitter::writeInOrderData()
     // {
     //     for (auto it = m_bufferedData.begin();
     //          it != m_bufferedData.end() && it->first == m_nextToPrint;

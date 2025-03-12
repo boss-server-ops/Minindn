@@ -2,7 +2,7 @@
 #ifndef IMAgg_DATA_FETCHER_HPP
 #define IMAgg_DATA_FETCHER_HPP
 
-#include "../core/common.hpp"
+#include "../../core/common.hpp"
 
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/util/scheduler.hpp>

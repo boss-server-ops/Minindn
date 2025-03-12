@@ -1,5 +1,5 @@
 #include "pipeliner.hpp"
-#include "chunks-interests-adaptive.hpp"
+#include "../chunk/chunks-interests-adaptive.hpp"
 #include <spdlog/spdlog.h>
 #include <ndn-cxx/util/exception.hpp>
 
@@ -59,7 +59,6 @@ namespace ndn::chunks
     // m_pipeline->getChunker()->schedulePackets();
     // std::cerr << "Finished segments data" << std::endl;
     // spdlog::info("Finished segments data");
-    m_pipeline->getChunker()->receivedChunkincrement();
   }
 
 } // namespace ndn::chunks

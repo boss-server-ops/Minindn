@@ -1,7 +1,7 @@
 #ifndef IMAgg_PIPELINE_INTERESTS_HPP
 #define IMAgg_PIPELINE_INTERESTS_HPP
 
-#include "../core/common.hpp"
+#include "../../core/common.hpp"
 #include "options.hpp"
 
 #include <ndn-cxx/face.hpp>
@@ -61,6 +61,8 @@ namespace ndn::chunks
     ChunksInterestsAdaptive *getChunker() const;
 
     bool m_canschedulenext = false; ///< indicates if the chunker can schedule the next chunk
+
+    Options getOptions() const;
 
   protected:
     time::steady_clock::time_point

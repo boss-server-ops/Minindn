@@ -11,6 +11,9 @@
 		},
 		{
 			"path": "../chunkworkdir"
+		},
+		{
+			"path": "../aggapps"
 		}
 	],
 	"settings": {
@@ -92,7 +95,9 @@
 			"scope": "cpp",
 			"format": "cpp",
 			"semaphore": "cpp",
-			"*.ipp": "cpp"
+			"*.ipp": "cpp",
+			"cfenv": "cpp",
+			"stdfloat": "cpp"
 		}
 	}
 }

@@ -66,11 +66,17 @@ namespace ndn::chunks
         void
         processSegmentInterest(const Interest &interest);
 
+        /**
+         * @brief Get the agg tree structure
+         */
+        void
+        processInitializaionInterest(const Interest &interest);
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::unordered_map<uint64_t, std::vector<std::shared_ptr<Data>>> m_store;
 
     private:
         Name m_prefix;
         Name m_chunkedPrefix;
+        Name m_initialPrefix;
         Face &m_face;
         KeyChain &m_keyChain;
         const Options m_options;
@@ -78,6 +84,7 @@ namespace ndn::chunks
         // Below is the new data structure for IMAgg
         InputGenerator &m_input;
         std::unordered_map<uint64_t, uint64_t> m_nSentSegments;
+        bool isini = false;
 
     public:
         spdlog::logger *logger;

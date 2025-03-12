@@ -1,10 +1,13 @@
-#ifndef IMAgg_CHUNKS_INTERESTS_HPP
-#define IMAgg_CHUNKS_INTERESTS_HPP
+#ifndef IMAgg_SPLITS_INTERESTS_HPP
+#define IMAgg_SPLITS_INTERESTS_HPP
 
-#include "../core/common.hpp"
-#include "options.hpp"
+#include "../../core/common.hpp"
+#include "../pipeline/options.hpp"
+#include "aggtree.hpp"
 
 #include <ndn-cxx/face.hpp>
+#include <unordered_set>
+#include <ndn-cxx/name.hpp>
 
 #include <functional>
 
@@ -21,7 +24,7 @@ namespace ndn::chunks
      * No guarantees are made as to the order in which segments are fetched or callbacks are invoked,
      * i.e. out-of-order delivery is possible.
      */
-    class ChunksInterests : noncopyable
+    class SplitInterests : noncopyable
     {
     public:
         /**
@@ -30,9 +33,9 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace.
          * After construction, the method run() must be called in order to start the pipeline.
          */
-        ChunksInterests(Face &face, const Options &opts);
+        SplitInterests(Face &face, const Options &opts);
 
-        virtual ~ChunksInterests();
+        virtual ~SplitInterests();
 
         using DataCallback = std::function<void(const Data &)>;
         using FailureCallback = std::function<void(const std::string &reason)>;
@@ -54,10 +57,10 @@ namespace ndn::chunks
         cancel();
 
         /**
-         * @return number of received chunks
+         * @return number of received splits
          */
         int64_t
-        getReceivedChunks();
+        getReceivedSplit();
 
         /**
          * @brief Get the size of received segments within a recording cycle.
@@ -65,10 +68,10 @@ namespace ndn::chunks
         size_t *getReceived();
 
         /**
-         * @brief other classes can call this method to increment the number of received chunks
+         * @brief other classes can call this method to increment the number of received splits
          */
         void
-        receivedChunkincrement();
+        receivedSplitincrement();
 
         /**
          * @brief print statistics about this fetching session
@@ -102,17 +105,17 @@ namespace ndn::chunks
          * @return true if all segments have been received, false otherwise
          */
         [[nodiscard]] bool
-        allChunksReceived() const;
+        allSplitReceived() const;
 
         /**
          * @return next segment number to retrieve
          * @post m_nextSegmentNo == return-value + 1
          */
         uint64_t
-        getNextChunkNo();
+        getNextSplitNo();
 
         /**
-         * @brief subclasses must call this method to notify successful retrieval of a chunk
+         * @brief subclasses must call this method to notify successful retrieval of a split
          */
         void
         onData(const Data &data);
@@ -153,16 +156,19 @@ namespace ndn::chunks
         Face &m_face;
         Name m_prefix;
 
-        PUBLIC_WITH_TESTS_ELSE_PROTECTED : bool m_hasFinalChunkId = false; ///< true if the last chunk number is known
-        uint64_t m_lastChunkNo = 0;                                        ///< valid only if m_hasFinalBlockId == true
-        int64_t m_nReceived = 0;                                           ///< number of chunks received
+        PUBLIC_WITH_TESTS_ELSE_PROTECTED : bool m_hasFinalSplitId = false; ///< true if the last split number is known
+        uint64_t m_lastSplitNo = 0;                                        ///< valid only if m_hasFinalBlockId == true
+        int64_t m_nReceived = 0;                                           ///< number of splits received
         size_t m_receivedSize = 0;                                         ///< size of received data in bytes
         time::steady_clock::time_point m_timeStamp;                        ///< used to record the throughput
-        size_t *m_received = nullptr;                                      ///< size of segments within a recording cycle
+        size_t *m_received = nullptr;
+        AggTree m_aggTree; ///< size of segments within a recording cycle
+        std::unordered_set<Name> m_receivedinitialInterests;
+
     private:
         DataCallback m_onData;
         FailureCallback m_onFailure;
-        uint64_t m_nextChunkNo = 0;
+        uint64_t m_nextSplitNo = 0;
         time::steady_clock::time_point m_startTime;
         bool m_isStopping = false;
     };

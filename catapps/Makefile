@@ -6,7 +6,8 @@ CXXFLAGS = -std=c++17
 LIBS = -lndn-cxx -lboost_system -lspdlog -lfmt -lstdc++fs -lboost_program_options
 
 # 指定源文件和目标文件
-CONSUMER_SRC = consumer.cpp main.cpp chunks-interests-adaptive.cpp chunks-interests.cpp data-fetcher.cpp discover-version.cpp pipeline-interests.cpp pipeline-interests-adaptive.cpp pipeline-interests-aimd.cpp pipeliner.cpp statistics-collector.cpp
+SRC_DIRS = chunk pipeline aggtree
+CONSUMER_SRC = $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.cpp)) main.cpp
 CONSUMER_OBJ = consumer
 
 # 默认目标

@@ -15,6 +15,7 @@ namespace ndn::chunks
 
         m_prefix = prefix;
         m_chunkedPrefix = Name(m_prefix).append(std::to_string(chunkNumber));
+        m_initialPrefix = Name(m_prefix).append("init");
         if (!m_options.isQuiet)
         {
             std::cerr << "Loading input ...\n";
@@ -28,6 +29,10 @@ namespace ndn::chunks
                               {            
             spdlog::error("ERROR: Failed to register prefix '{}'({})", prefix.toUri(), boost::lexical_cast<std::string>(reason));
             m_face.shutdown(); });
+
+        spdlog::debug("m_initialPrefix is {}", m_initialPrefix.toUri());
+        face.setInterestFilter(m_initialPrefix, [this](const auto &, const auto &interest)
+                               { processInitializaionInterest(interest); });
         // match Interests whose name starts with m_chunkedPrefix
         spdlog::debug("m_chunkedPrefix is {}", m_chunkedPrefix.toUri());
         face.setInterestFilter(m_prefix, [this](const auto &, const auto &interest)
@@ -51,6 +56,11 @@ namespace ndn::chunks
     void
     Producer::processSegmentInterest(const Interest &interest)
     {
+        if (isini)
+        {
+            isini = false;
+            return;
+        }
         spdlog::debug("Producer::processSegmentInterest()");
         if (m_options.isVerbose)
         {
@@ -126,7 +136,24 @@ namespace ndn::chunks
         }
     }
 
-    void Producer::segmentationChunk(uint64_t chunkNumber)
+    void Producer::processInitializaionInterest(const Interest &interest)
+    {
+        spdlog::info("Received initialization interest: {}", interest.getName().toUri());
+
+        auto data = make_shared<Data>(interest.getName());
+        data->setFreshnessPeriod(time::seconds(10));
+        data->setContent(makeStringBlock(tlv::Content, "Get initial interest"));
+
+        m_keyChain.sign(*data);
+
+        m_face.put(*data);
+
+        spdlog::info("Sent initialization data: {}", data->getName().toUri());
+        isini = true;
+    }
+
+    void
+    Producer::segmentationChunk(uint64_t chunkNumber)
     {
         std::unique_ptr<std::istream> is = m_input.getChunk(chunkNumber);
         m_chunkedPrefix = Name(m_prefix).append(std::to_string(chunkNumber));

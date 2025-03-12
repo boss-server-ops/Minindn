@@ -1,7 +1,9 @@
-#include "consumer.hpp"
-#include "discover-version.hpp"
-#include "pipeline-interests-aimd.hpp"
-#include "statistics-collector.hpp"
+#include "aggtree/splitter.hpp"
+#include "aggtree/splitter.hpp"
+#include "aggtree/split-interests-adaptive.hpp"
+#include "pipeline/discover-version.hpp"
+#include "pipeline/pipeline-interests-aimd.hpp"
+#include "pipeline/statistics-collector.hpp"
 #include "../core/version.hpp"
 
 #include <ndn-cxx/security/validator-null.hpp>
@@ -65,7 +67,7 @@ namespace ndn::chunks
     }
 
     static bool
-    readConfigFile(const std::string &filename, Options &opts, std::string &prefix, std::string &nameConv, std::string &pipelineType, std::string &cwndPath, std::string &rttPath, std::shared_ptr<util::RttEstimator::Options> &rttEstOptions)
+    readConfigFile(const std::string &filename, Options &opts, std::string &prefix, std::string &nameConv, std::string &pipelineType, std::string &cwndPath, std::string &rttPath, std::shared_ptr<util::RttEstimator::Options> &rttEstOptions, std::string &logLevel)
     {
         pt::ptree tree;
         try
@@ -106,6 +108,7 @@ namespace ndn::chunks
             opts.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", opts.resetCwndToInit);
 
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
+            opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
         }
         catch (const pt::ptree_error &e)
         {
@@ -148,7 +151,7 @@ namespace ndn::chunks
             return 0;
         }
 
-        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType, cwndPath, rttPath, rttEstOptions))
+        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType, cwndPath, rttPath, rttEstOptions, logLevel))
         {
             return 2;
         }
@@ -235,9 +238,8 @@ namespace ndn::chunks
             rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
 
             pipeline = std::make_unique<PipelineInterestsAimd>(face, *rttEstimator, options);
-            std::unique_ptr<ChunksInterestsAdaptive> adapativechunks =
-                std::make_unique<ChunksInterestsAdaptive>(face, *rttEstimator, options);
-            spdlog::debug("finished creating adapativechunks");
+            std::unique_ptr<SplitInterests> split = std::make_unique<SplitInterestsAdaptive>(face, *rttEstimator, options);
+            spdlog::debug("finished creating split");
             if (!cwndPath.empty() || !rttPath.empty())
             {
                 if (!cwndPath.empty())
@@ -260,24 +262,24 @@ namespace ndn::chunks
                 }
                 statsCollector = std::make_unique<StatisticsCollector>(*pipeline, statsFileCwnd, statsFileRtt);
             }
-            spdlog::debug("Starting consumer");
-            Consumer consumer(security::getAcceptAllValidator());
+            spdlog::debug("Starting splitter");
+            Splitter splitter(security::getAcceptAllValidator());
             BOOST_ASSERT(discover != nullptr);
             BOOST_ASSERT(pipeline != nullptr);
             spdlog::set_level(spdlog::level::from_str(logLevel));
             spdlog::flush_on(spdlog::level::from_str(logLevel));
-            consumer.run(std::move(discover), std::move(adapativechunks));
+            splitter.run(std::move(discover), std::move(split));
             spdlog::info("starting processing events");
             face.processEvents();
 
             spdlog::info("Finished processing events");
         }
-        catch (const Consumer::ApplicationNackError &e)
+        catch (const Splitter::ApplicationNackError &e)
         {
             std::cerr << "ERROR: " << e.what() << "\n";
             return 3;
         }
-        catch (const Consumer::DataValidationError &e)
+        catch (const Splitter::DataValidationError &e)
         {
             std::cerr << "ERROR: " << e.what() << "\n";
             return 5;
@@ -295,7 +297,7 @@ namespace ndn::chunks
 
 int main(int argc, char *argv[])
 {
-    auto m_logger = spdlog::basic_logger_mt("consumer_logger", "logs/consumer.log");
+    auto m_logger = spdlog::basic_logger_mt("splitter_logger", "logs/splitter.log");
     spdlog::set_default_logger(m_logger);
     spdlog::set_level(spdlog::level::debug);
     spdlog::flush_on(spdlog::level::debug);

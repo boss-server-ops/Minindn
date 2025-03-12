@@ -27,7 +27,7 @@
  */
 
 #include "pipeline-interests-aimd.hpp"
-#include "chunks-interests-adaptive.hpp"
+#include "../chunk/chunks-interests-adaptive.hpp"
 #include <spdlog/spdlog.h>
 #include <cmath>
 

@@ -6,6 +6,7 @@
 #include <ndn-cxx/util/time.hpp>
 
 #include <limits>
+#include <string>
 
 namespace ndn::chunks
 {
@@ -44,6 +45,7 @@ namespace ndn::chunks
 
     // Recording cycle
     time::milliseconds recordingCycle = time::milliseconds(1000);
+    std::string topoFile = "../experiment/topologies/binary.txt";
   };
 
 } // namespace ndn::chunks

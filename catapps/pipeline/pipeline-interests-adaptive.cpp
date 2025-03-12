@@ -1,6 +1,6 @@
 #include "pipeline-interests-adaptive.hpp"
 #include "data-fetcher.hpp"
-#include "chunks-interests-adaptive.hpp"
+#include "../chunk/chunks-interests-adaptive.hpp"
 
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
@@ -346,10 +346,7 @@ namespace ndn::chunks
       if (!m_options.isQuiet)
       {
         printSummary();
-        if (m_chunker->getReceivedChunks() == m_options.TotalChunksNumber)
-        {
-          m_chunker->printSummary();
-        }
+        m_chunker->onData();
       }
     }
     else

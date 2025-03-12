@@ -1,5 +1,5 @@
-#include "chunks-interests.hpp"
-#include "data-fetcher.hpp"
+#include "split-interests.hpp"
+#include "../pipeline/data-fetcher.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>
@@ -9,15 +9,15 @@
 namespace ndn::chunks
 {
 
-    ChunksInterests::ChunksInterests(Face &face, const Options &opts)
+    SplitInterests::SplitInterests(Face &face, const Options &opts)
         : m_options(opts), m_face(face)
     {
     }
 
-    ChunksInterests::~ChunksInterests() = default;
+    SplitInterests::~SplitInterests() = default;
 
     void
-    ChunksInterests::run(const Name &versionedName, DataCallback dataCb, FailureCallback failureCb)
+    SplitInterests::run(const Name &versionedName, DataCallback dataCb, FailureCallback failureCb)
     {
         BOOST_ASSERT(m_options.disableVersionDiscovery ||
                      (!versionedName.empty() && versionedName[-1].isVersion()));
@@ -27,7 +27,7 @@ namespace ndn::chunks
         m_onData = std::move(dataCb);
         m_onFailure = std::move(failureCb);
 
-        // record the start time of the chunks
+        // record the start time of the splits
         m_startTime = time::steady_clock::now();
 
         // record the first timestamp
@@ -38,7 +38,7 @@ namespace ndn::chunks
     }
 
     void
-    ChunksInterests::cancel()
+    SplitInterests::cancel()
     {
         if (m_isStopping)
             return;
@@ -49,36 +49,36 @@ namespace ndn::chunks
 
     // TODO: logic is wrong
     bool
-    ChunksInterests::allChunksReceived() const
+    SplitInterests::allSplitReceived() const
     {
-        return m_nextChunkNo >= m_options.TotalChunksNumber;
+        return false;
     }
 
     uint64_t
-    ChunksInterests::getNextChunkNo()
+    SplitInterests::getNextSplitNo()
     {
-        return m_nextChunkNo++;
+        return m_nextSplitNo++;
     }
 
     int64_t
-    ChunksInterests::getReceivedChunks()
+    SplitInterests::getReceivedSplit()
     {
         return m_nReceived;
     }
 
-    uint64_t *ChunksInterests::getReceived()
+    uint64_t *SplitInterests::getReceived()
     {
         return m_received;
     }
 
     void
-    ChunksInterests::receivedChunkincrement()
+    SplitInterests::receivedSplitincrement()
     {
         m_nReceived++;
     }
 
     // void
-    // ChunksInterests::onData(const Data &data)
+    // SplitInterests::onData(const Data &data)
     // {
     //     m_nReceived++;
     //     m_receivedSize += data.getContent().value_size();
@@ -87,7 +87,7 @@ namespace ndn::chunks
     // }
 
     // void
-    // ChunksInterests::onFailure(const std::string &reason)
+    // SplitInterests::onFailure(const std::string &reason)
     // {
     //     if (m_isStopping)
     //         return;
@@ -102,13 +102,13 @@ namespace ndn::chunks
     // }
 
     // void
-    // ChunksInterests::printOptions() const
+    // SplitInterests::printOptions() const
     // {
-    //     std::cerr << "Chunks parameters:\n"
+    //     std::cerr << "Split parameters:\n"
     //               << "\tRequest fresh content = " << (m_options.mustBeFresh ? "yes" : "no") << "\n"
     //               << "\tInterest lifetime = " << m_options.interestLifetime << "\n"
     //               << "\tMax retries on timeout or Nack = " << (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)) << "\n";
-    //     spdlog::info("Chunks parameters:\n"
+    //     spdlog::info("Split parameters:\n"
     //                  "\tRequest fresh content = {}\n"
     //                  "\tInterest lifetime = {}\n"
     //                  "\tMax retries on timeout or Nack = {}",
@@ -118,14 +118,14 @@ namespace ndn::chunks
     // }
 
     void
-    ChunksInterests::printSummary() const
+    SplitInterests::printSummary() const
     {
-        std::cerr << "All chunks received" << std::endl;
-        spdlog::info("All chunks received");
+        std::cerr << "All splits received" << std::endl;
+        spdlog::info("All splits received");
     }
 
     std::string
-    ChunksInterests::formatThroughput(double throughput)
+    SplitInterests::formatThroughput(double throughput)
     {
         int pow = 0;
         while (throughput >= 1000.0 && pow < 4)

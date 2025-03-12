@@ -1,9 +1,9 @@
 #include "chunks-interests-adaptive.hpp"
-#include "data-fetcher.hpp"
-#include "pipeline-interests-adaptive.hpp"
-#include "pipeline-interests-aimd.hpp"
-#include "pipeliner.hpp"
-#include "discover-version.hpp"
+#include "../pipeline/data-fetcher.hpp"
+#include "../pipeline/pipeline-interests-adaptive.hpp"
+#include "../pipeline/pipeline-interests-aimd.hpp"
+#include "../pipeline/pipeliner.hpp"
+#include "../pipeline/discover-version.hpp"
 
 #include <boost/lexical_cast.hpp>
 #include <ndn-cxx/security/validator-null.hpp>

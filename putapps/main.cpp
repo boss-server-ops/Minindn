@@ -27,10 +27,10 @@ namespace ndn::chunks
            << "Options:\n"
            << "  --help, -h                   Print this help message and exit\n"
            << "  --version, -V                Print program version and exit\n"
+           << "  --prefix, -p <prefix>        NDN name for the served content\n"
            << "\n"
            << "Configuration file parameters (config.ini):\n"
            << "  [General]\n"
-           << "    name                       NDN name for the served content\n"
            << "    freshness                  FreshnessPeriod of the published Data packets, in milliseconds\n"
            << "    size                       Maximum chunk size, in bytes\n"
            << "    naming-convention          Encoding convention to use for name components, either 'marker' or 'typed'\n"
@@ -46,7 +46,7 @@ namespace ndn::chunks
     }
 
     static bool
-    readConfigFile(const std::string &filename, Producer::Options &opts, std::string &prefix, std::string &nameConv, std::string &signingStr, std::string &logFile, std::string &logLevel)
+    readConfigFile(const std::string &filename, Producer::Options &opts, std::string &nameConv, std::string &signingStr, std::string &logFile, std::string &logLevel)
     {
         pt::ptree tree;
         try
@@ -61,7 +61,6 @@ namespace ndn::chunks
 
         try
         {
-            prefix = tree.get<std::string>("General.name");
             opts.freshnessPeriod = time::milliseconds(tree.get<time::milliseconds::rep>("General.freshness", opts.freshnessPeriod.count()));
             opts.maxSegmentSize = tree.get<size_t>("General.size", opts.maxSegmentSize);
             nameConv = tree.get<std::string>("General.naming-convention", "");
@@ -95,12 +94,19 @@ namespace ndn::chunks
         std::string prefix, nameConv, signingStr, logFile, logLevel;
 
         po::options_description visibleDesc("Options");
-        visibleDesc.add_options()("help,h", "print this help message and exit");
+        visibleDesc.add_options()("help,h", "print this help message and exit")("prefix,p", po::value<std::string>(&prefix)->required(), "NDN name for the served content");
 
         po::variables_map vm;
         try
         {
             po::store(po::parse_command_line(argc, argv, visibleDesc), vm);
+
+            if (vm.count("help") > 0)
+            {
+                usage(std::cout, programName, visibleDesc);
+                return 0;
+            }
+
             po::notify(vm);
         }
         catch (const po::error &e)
@@ -109,24 +115,11 @@ namespace ndn::chunks
             return 2;
         }
 
-        if (vm.count("help") > 0)
-        {
-            usage(std::cout, programName, visibleDesc);
-            return 0;
-        }
-
-        if (!readConfigFile("../experiments/proconfig.ini", opts, prefix, nameConv, signingStr, logFile, logLevel))
+        if (!readConfigFile("../experiments/proconfig.ini", opts, nameConv, signingStr, logFile, logLevel))
         {
             return 2;
         }
         spdlog::debug("Finished reading configuration file");
-
-        if (prefix.empty())
-        {
-            std::cerr << "ERROR: Missing required parameter 'name' in configuration file\n";
-            usage(std::cerr, programName, visibleDesc);
-            return 2;
-        }
 
         if (nameConv == "marker" || nameConv == "m" || nameConv == "1")
         {
