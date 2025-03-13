@@ -5,15 +5,58 @@ void AggTree::readTopology(const string &filename)
 {
     ifstream file(filename);
     string line;
+    bool inNodesSection = false;
+    bool inLinksSection = false;
+
     while (getline(file, line))
     {
-        istringstream iss(line);
-        string parent, child;
-        if (getline(iss, parent, ':') && getline(iss, child))
+        // Trim whitespace from the line
+        line.erase(0, line.find_first_not_of(" \t\n\r\f\v"));
+        line.erase(line.find_last_not_of(" \t\n\r\f\v") + 1);
+
+        // Skip empty lines and comments
+        if (line.empty() || line[0] == '#')
         {
-            topology[parent].name = parent;
-            topology[parent].children.push_back(child);
-            topology[child].name = child;
+            continue;
+        }
+
+        // Check for section headers
+        if (line == "[nodes]")
+        {
+            inNodesSection = true;
+            inLinksSection = false;
+            continue;
+        }
+        else if (line == "[links]")
+        {
+            inNodesSection = false;
+            inLinksSection = true;
+            continue;
+        }
+
+        // Parse nodes section
+        if (inNodesSection)
+        {
+            istringstream iss(line);
+            string parent, child;
+            if (getline(iss, parent, ':') && getline(iss, child, '_'))
+            {
+                topology[parent].name = parent;
+                // No children to add in nodes section
+            }
+        }
+
+        // Parse links section
+        if (inLinksSection)
+        {
+            istringstream iss(line);
+            string parent, child;
+            if (getline(iss, parent, ':') && getline(iss, child, ' '))
+            {
+                topology[parent].name = parent;
+                topology[parent].children.push_back(child);
+                topology[child].name = child;
+            }
         }
     }
 }
@@ -38,6 +81,7 @@ void AggTree::findPaths(const string &node, vector<string> currentPath)
 void AggTree::getTreeTopology(const string &filename, const string &root)
 {
     readTopology(filename);
+    rootChildCount = topology[root].children.size();
     vector<string> currentPath;
     currentPath.push_back(root);
     findPaths(root, currentPath);
@@ -93,7 +137,7 @@ void AggTree::generateInterestNames()
 //     AggTree tree;
 
 //     // Get tree topology
-//     tree.getTreeTopology("/home/dd/mini-ndn/chunkworkdir/experiments/topologies/binary.txt", "con0");
+//     tree.getTreeTopology("../../topologies/Customtest.conf", "con0");
 
 //     // Output direct children of con0
 //     cout << "Direct children of con0: ";

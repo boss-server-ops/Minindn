@@ -32,7 +32,7 @@ namespace ndn::chunks
     }
 
     void
-    Splitter::handleData(const Data &data)
+    Splitter::handleData()
     {
         return;
     }

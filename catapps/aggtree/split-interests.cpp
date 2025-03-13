@@ -19,6 +19,7 @@ namespace ndn::chunks
     void
     SplitInterests::run(const Name &versionedName, DataCallback dataCb, FailureCallback failureCb)
     {
+        spdlog::debug("SplitInterests::run() called");
         BOOST_ASSERT(m_options.disableVersionDiscovery ||
                      (!versionedName.empty() && versionedName[-1].isVersion()));
         BOOST_ASSERT(dataCb != nullptr);
@@ -47,11 +48,10 @@ namespace ndn::chunks
         doCancel();
     }
 
-    // TODO: logic is wrong
     bool
     SplitInterests::allSplitReceived() const
     {
-        return false;
+        return m_nReceived == m_aggTree.rootChildCount;
     }
 
     uint64_t
@@ -77,14 +77,17 @@ namespace ndn::chunks
         m_nReceived++;
     }
 
-    // void
-    // SplitInterests::onData(const Data &data)
-    // {
-    //     m_nReceived++;
-    //     m_receivedSize += data.getContent().value_size();
-
-    //     m_onData(data);
-    // }
+    void
+    SplitInterests::onData()
+    {
+        m_nReceived++;
+        if (allSplitReceived())
+        {
+            printSummary();
+            cancel();
+        }
+        m_onData();
+    }
 
     // void
     // SplitInterests::onFailure(const std::string &reason)

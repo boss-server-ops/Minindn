@@ -33,7 +33,7 @@ namespace ndn::chunks
         // record the first timestamp
         m_timeStamp = time::steady_clock::now();
 
-        m_received = new size_t(0);
+        m_received = m_splitinterest->getReceived();
         doRun();
     }
 
@@ -83,6 +83,7 @@ namespace ndn::chunks
         // m_receivedSize += data.getContent().value_size();
         if (allChunksReceived())
         {
+            m_splitinterest->onData();
             printSummary();
         }
         m_onData();
@@ -149,6 +150,12 @@ namespace ndn::chunks
             return std::to_string(throughput) + " Tbit/s";
         }
         return "";
+    }
+
+    void
+    ChunksInterests::setSplitinterest(SplitInterestsAdaptive *splitinterest)
+    {
+        m_splitinterest = splitinterest;
     }
 
 } // namespace ndn::chunks

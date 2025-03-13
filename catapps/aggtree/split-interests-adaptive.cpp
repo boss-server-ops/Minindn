@@ -27,6 +27,8 @@ namespace ndn::chunks
     void
     SplitInterestsAdaptive::doRun()
     {
+        spdlog::debug("SplitInterestsAdaptive::doRun() called");
+        m_aggTree.getTreeTopology(m_options.topoFile, "con0");
         if (allSplitReceived())
         {
             cancel();
@@ -36,13 +38,14 @@ namespace ndn::chunks
             // }
             return;
         }
-
+        recordThroughput();
         schedulePackets();
     }
 
     void
     SplitInterestsAdaptive::doCancel()
     {
+        m_recordEvent.cancel();
         m_splitInfo.clear();
     }
 
@@ -66,9 +69,11 @@ namespace ndn::chunks
         try
         {
             splitInfo.consumer = new Consumer(security::getAcceptAllValidator());
+
             auto discover = std::make_unique<DiscoverVersion>(m_face, interestName, m_options);
             std::unique_ptr<ChunksInterests> chunks =
                 std::make_unique<ChunksInterestsAdaptive>(m_face, m_rttEstimator, m_options);
+            chunks->setSplitinterest(this);
             splitInfo.consumer->run(std::move(discover), std::move(chunks));
         }
         catch (const Consumer::ApplicationNackError &e)
@@ -104,7 +109,7 @@ namespace ndn::chunks
             *m_received = 0;
 
             // 读取拓扑文件中的参数
-            std::ifstream topoFile("../../topologies/Linetest.conf");
+            std::ifstream topoFile(m_options.topoFile);
             std::string line;
             std::string filename;
             if (topoFile.is_open())
@@ -167,12 +172,17 @@ namespace ndn::chunks
             logFile.close();
             m_timeStamp = now;
         }
+        if (m_recordEvent)
+        {
+            m_recordEvent.cancel();
+        }
+        m_recordEvent = m_scheduler.schedule(time::milliseconds(0), [this]
+                                             { recordThroughput(); });
     }
 
     void
     SplitInterestsAdaptive::sendInitialInterest()
     {
-        m_aggTree.getTreeTopology(m_options.topoFile, "con0");
 
         for (auto interestName : m_aggTree.interestNames)
         {
@@ -196,6 +206,7 @@ namespace ndn::chunks
     void
     SplitInterestsAdaptive::schedulePackets()
     {
+        spdlog::debug("SplitInterestsAdaptive::schedulePackets() called");
         sendInitialInterest();
     }
 

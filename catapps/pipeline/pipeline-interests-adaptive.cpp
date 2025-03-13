@@ -210,6 +210,8 @@ namespace ndn::chunks
       m_scheduleEvent = m_scheduler.schedule(time::milliseconds(0), [this]
                                              { schedulePackets(); });
     }
+    // to avoid other flows interruping the current flow
+
     wait();
   }
 

@@ -222,7 +222,7 @@ namespace ndn::chunks
         RttEstimatorWithStats &m_rttEstimator;
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
-        scheduler::ScopedEventId m_checkEvent;
+        scheduler::ScopedEventId m_recordEvent;
         // scheduler::ScopedEventId m_checkRtoEvent;
 
         uint64_t m_highData = 0;     ///< the highest split number of the Data packet the consumer has received so far

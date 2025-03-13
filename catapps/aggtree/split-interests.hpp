@@ -37,7 +37,7 @@ namespace ndn::chunks
 
         virtual ~SplitInterests();
 
-        using DataCallback = std::function<void(const Data &)>;
+        using DataCallback = std::function<void()>;
         using FailureCallback = std::function<void(const std::string &reason)>;
 
         /**
@@ -81,6 +81,12 @@ namespace ndn::chunks
         virtual void
         printSummary() const;
 
+        /**
+         * @brief subclasses must call this method to notify successful retrieval of a split
+         */
+        void
+        onData();
+
     protected:
         time::steady_clock::time_point
         getStartTime() const
@@ -113,12 +119,6 @@ namespace ndn::chunks
          */
         uint64_t
         getNextSplitNo();
-
-        /**
-         * @brief subclasses must call this method to notify successful retrieval of a split
-         */
-        void
-        onData(const Data &data);
 
         /**
          * @brief subclasses can call this method to signal an unrecoverable failure

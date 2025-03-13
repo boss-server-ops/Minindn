@@ -109,6 +109,7 @@ namespace ndn::chunks
 
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
             opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
+            logLevel = tree.get<std::string>("General.log-level", "debug");
         }
         catch (const pt::ptree_error &e)
         {
@@ -297,7 +298,7 @@ namespace ndn::chunks
 
 int main(int argc, char *argv[])
 {
-    auto m_logger = spdlog::basic_logger_mt("splitter_logger", "logs/splitter.log");
+    auto m_logger = spdlog::basic_logger_mt("splitter_logger", "logs/consumer.log");
     spdlog::set_default_logger(m_logger);
     spdlog::set_level(spdlog::level::debug);
     spdlog::flush_on(spdlog::level::debug);

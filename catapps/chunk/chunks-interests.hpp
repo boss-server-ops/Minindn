@@ -3,6 +3,7 @@
 
 #include "../../core/common.hpp"
 #include "../pipeline/options.hpp"
+#include "../aggtree/split-interests-adaptive.hpp"
 
 #include <ndn-cxx/face.hpp>
 
@@ -84,6 +85,9 @@ namespace ndn::chunks
         void
         onData();
 
+        void
+        setSplitinterest(SplitInterestsAdaptive *splitinterest);
+
     protected:
         time::steady_clock::time_point
         getStartTime() const
@@ -159,6 +163,8 @@ namespace ndn::chunks
         size_t m_receivedSize = 0;                                         ///< size of received data in bytes
         time::steady_clock::time_point m_timeStamp;                        ///< used to record the throughput
         size_t *m_received = nullptr;                                      ///< size of segments within a recording cycle
+        SplitInterestsAdaptive *m_splitinterest = nullptr;
+
     private:
         DataCallback m_onData;
         FailureCallback m_onFailure;
@@ -166,13 +172,6 @@ namespace ndn::chunks
         time::steady_clock::time_point m_startTime;
         bool m_isStopping = false;
     };
-
-    // template <typename Packet>
-    // uint64_t
-    // getSegmentFromPacket(const Packet &packet)
-    // {
-    //     return packet.getName().at(-1).toSegment();
-    // }
 
 } // namespace ndn::chunks
 

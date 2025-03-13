@@ -115,7 +115,7 @@ namespace ndn::chunks
             m_checkEvent = m_scheduler.schedule(time::milliseconds(0), [this, chuNo]
                                                 { checkSendNext(chuNo); });
         }
-        recordThroughput();
+        // recordThroughput();
     }
 
     void

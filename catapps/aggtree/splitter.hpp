@@ -56,7 +56,7 @@ namespace ndn::chunks
 
     private:
         void
-        handleData(const Data &data);
+        handleData();
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
                                          writeInOrderData();
