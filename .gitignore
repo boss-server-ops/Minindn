@@ -18,9 +18,12 @@ dl
 .vagrant
 
 
-# 忽略 chunkworkdir 目录下的所有内容
-chunkworkdir/**/*
-
+# 先显式不忽略 chunkworkdir 目录本身
+!chunkworkdir/
+# 不忽略所有子目录
+!chunkworkdir/**/
 # 不忽略 .py 和 .ini 文件
 !chunkworkdir/**/*.py
 !chunkworkdir/**/*.ini
+# 忽略 chunkworkdir 下的其他所有文件
+chunkworkdir/**/*
