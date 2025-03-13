@@ -33,7 +33,7 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace.
          * After construction, the method run() must be called in order to start the pipeline.
          */
-        SplitInterests(Face &face, const Options &opts);
+        SplitInterests(Face &face, Face &face2, const Options &opts);
 
         virtual ~SplitInterests();
 
@@ -154,6 +154,7 @@ namespace ndn::chunks
     protected:
         const Options &m_options;
         Face &m_face;
+        Face &m_face2;
         Name m_prefix;
 
         PUBLIC_WITH_TESTS_ELSE_PROTECTED : bool m_hasFinalSplitId = false; ///< true if the last split number is known

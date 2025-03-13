@@ -213,10 +213,11 @@ namespace ndn::chunks
             std::cerr << "ERROR: --max-rto cannot be smaller than --min-rto\n";
             return 2;
         }
-
+        std::atomic<bool> shouldStop{false};
         try
         {
             Face face;
+            Face face2;
             auto discover = std::make_unique<DiscoverVersion>(face, Name(prefix), options);
             std::unique_ptr<PipelineInterestsAimd> pipeline;
             std::unique_ptr<StatisticsCollector> statsCollector;
@@ -239,7 +240,7 @@ namespace ndn::chunks
             rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
 
             pipeline = std::make_unique<PipelineInterestsAimd>(face, *rttEstimator, options);
-            std::unique_ptr<SplitInterests> split = std::make_unique<SplitInterestsAdaptive>(face, *rttEstimator, options);
+            std::unique_ptr<SplitInterests> split = std::make_unique<SplitInterestsAdaptive>(face, face2, *rttEstimator, options);
             spdlog::debug("finished creating split");
             if (!cwndPath.empty() || !rttPath.empty())
             {
@@ -271,7 +272,39 @@ namespace ndn::chunks
             spdlog::flush_on(spdlog::level::from_str(logLevel));
             splitter.run(std::move(discover), std::move(split));
             spdlog::info("starting processing events");
-            face.processEvents();
+
+            std::thread face2Thread([&face2, &shouldStop]()
+                                    {
+                try {
+                    while (!shouldStop) {
+                        face2.processEvents();
+                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                    }
+                }
+                catch (const std::exception& e) {
+                    spdlog::error("Face2处理事件出错: {}", e.what());
+                } });
+
+            spdlog::info("starting processing events for face1");
+
+            try
+            {
+                // 主线程处理face的事件
+                face.processEvents();
+            }
+            catch (const std::exception &e)
+            {
+                spdlog::error("Face1处理事件出错: {}", e.what());
+            }
+
+            // 主face处理结束，通知face2线程也结束
+            shouldStop = true;
+
+            // 等待face2线程结束
+            if (face2Thread.joinable())
+            {
+                face2Thread.join();
+            }
 
             spdlog::info("Finished processing events");
         }

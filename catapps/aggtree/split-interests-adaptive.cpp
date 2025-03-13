@@ -12,10 +12,10 @@
 namespace ndn::chunks
 {
 
-    SplitInterestsAdaptive::SplitInterestsAdaptive(Face &face,
+    SplitInterestsAdaptive::SplitInterestsAdaptive(Face &face, Face &face2,
                                                    RttEstimatorWithStats &rttEstimator,
                                                    const Options &opts)
-        : SplitInterests(face, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext())
+        : SplitInterests(face, face2, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext()), m_scheduler2(m_face2.getIoContext())
     {
     }
 
@@ -95,7 +95,52 @@ namespace ndn::chunks
         m_nSent++;
         spdlog::debug("Finished sending first interest for interest name: {}", interestName.toUri());
     }
+    void
+    SplitInterestsAdaptive::sendInterest2(Name &interestName)
+    {
+        if (isStopping())
+            return;
 
+        // if (chuNo >= m_options.TotalSplitNumber)
+        //     return;
+        std::string firstComponent = interestName.get(0).toUri();
+
+        if (m_options.isVerbose)
+        {
+            std::cerr << "Requesting interest with first component: " << firstComponent << "\n";
+            spdlog::debug("Requesting interest with first component: {}", firstComponent);
+        }
+
+        SplitInfo &splitInfo = m_splitInfo[firstComponent];
+        try
+        {
+            splitInfo.consumer = new Consumer(security::getAcceptAllValidator());
+
+            auto discover = std::make_unique<DiscoverVersion>(m_face2, interestName, m_options);
+            std::unique_ptr<ChunksInterests> chunks =
+                std::make_unique<ChunksInterestsAdaptive>(m_face2, m_rttEstimator, m_options);
+            chunks->setSplitinterest(this);
+            splitInfo.consumer->run(std::move(discover), std::move(chunks));
+        }
+        catch (const Consumer::ApplicationNackError &e)
+        {
+            std::cerr << "ERROR: " << e.what() << "\n";
+            return;
+        }
+        catch (const Consumer::DataValidationError &e)
+        {
+            std::cerr << "ERROR: " << e.what() << "\n";
+            return;
+        }
+        catch (const std::exception &e)
+        {
+            std::cerr << "ERROR: " << e.what() << "\n";
+            return;
+        }
+        splitInfo.timeSent = time::steady_clock::now();
+        m_nSent++;
+        spdlog::debug("Finished sending first interest for interest name: {}", interestName.toUri());
+    }
     void
     SplitInterestsAdaptive::recordThroughput()
     {
@@ -267,11 +312,15 @@ namespace ndn::chunks
         {
             spdlog::info("All initial interests have been successfully received.");
             // Schedule sending interests for all interest names
-            for (auto &interestName : m_aggTree.interestNames)
-            {
-                m_scheduler.schedule(time::milliseconds(0), [this, &interestName]
-                                     { sendInterest(interestName); });
-            }
+            // for (auto &interestName : m_aggTree.interestNames)
+            // {
+            //     m_scheduler.schedule(time::milliseconds(0), [this, &interestName]
+            //                          { sendInterest(interestName); });
+            // }
+            m_scheduler.schedule(time::milliseconds(0), [this, &interestName = m_aggTree.interestNames[0]]
+                                 { sendInterest(interestName); });
+            m_scheduler2.schedule(time::milliseconds(0), [this, &interestName = m_aggTree.interestNames[1]]
+                                  { sendInterest2(interestName); });
         }
     }
 

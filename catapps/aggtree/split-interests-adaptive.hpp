@@ -54,7 +54,7 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace. After this
          * configuration the method run must be called to start the Split.
          */
-        SplitInterestsAdaptive(Face &face, RttEstimatorWithStats &rttEstimator, const Options &opts);
+        SplitInterestsAdaptive(Face &face, Face &face2, RttEstimatorWithStats &rttEstimator, const Options &opts);
 
         ~SplitInterestsAdaptive() override;
 
@@ -181,11 +181,13 @@ namespace ndn::chunks
         void
         sendInterest(Name &interestName);
 
+        void
+        sendInterest2(Name &interestName);
+
         /**
          * TODO: add comment
          */
-        void
-        sendInitialInterest();
+        void sendInitialInterest();
 
         void
         handleData(const Interest &interest, const Data &data);
@@ -222,6 +224,7 @@ namespace ndn::chunks
         RttEstimatorWithStats &m_rttEstimator;
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
+        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler2;
         scheduler::ScopedEventId m_recordEvent;
         // scheduler::ScopedEventId m_checkRtoEvent;
 

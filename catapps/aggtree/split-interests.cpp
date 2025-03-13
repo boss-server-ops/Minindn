@@ -9,8 +9,8 @@
 namespace ndn::chunks
 {
 
-    SplitInterests::SplitInterests(Face &face, const Options &opts)
-        : m_options(opts), m_face(face)
+    SplitInterests::SplitInterests(Face &face, Face &face2, const Options &opts)
+        : m_options(opts), m_face(face), m_face2(face2)
     {
     }
 
