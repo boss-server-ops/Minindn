@@ -31,7 +31,7 @@ namespace ndn::chunks
     }
 
     void
-    Consumer::handleData()
+    Consumer::handleData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
 
         return;

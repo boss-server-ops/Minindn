@@ -3,6 +3,7 @@
 
 #include "../../core/common.hpp"
 #include "../pipeline/options.hpp"
+#include "../controller/controller.hpp"
 #include "aggtree.hpp"
 
 #include <ndn-cxx/face.hpp>
@@ -10,6 +11,7 @@
 #include <ndn-cxx/name.hpp>
 
 #include <functional>
+#include <vector>
 
 namespace ndn::chunks
 {
@@ -33,11 +35,11 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace.
          * After construction, the method run() must be called in order to start the pipeline.
          */
-        SplitInterests(Face &face, Face &face2, const Options &opts);
+        SplitInterests(std::vector<std::reference_wrapper<Face>> faces, const Options &opts);
 
         virtual ~SplitInterests();
 
-        using DataCallback = std::function<void()>;
+        using DataCallback = std::function<void(std::map<uint64_t, std::shared_ptr<const Data>> &data)>;
         using FailureCallback = std::function<void(const std::string &reason)>;
 
         /**
@@ -85,7 +87,15 @@ namespace ndn::chunks
          * @brief subclasses must call this method to notify successful retrieval of a split
          */
         void
-        onData();
+        onData(std::map<uint64_t, std::shared_ptr<const Data>> &data);
+
+        void
+        ReceivedFlowIncrement()
+        {
+            m_nReceivedFlow++;
+        }
+
+        std::unique_ptr<FlowController> m_flowController;
 
     protected:
         time::steady_clock::time_point
@@ -135,6 +145,33 @@ namespace ndn::chunks
         static std::string
         formatThroughput(double throughput);
 
+        AggTree
+        getAggTree()
+        {
+            return m_aggTree;
+        }
+
+        /**
+         * @brief Get a Face by index
+         * @param index The index of the Face to retrieve
+         * @return Reference to the Face
+         */
+        Face &
+        getFace(size_t index)
+        {
+            return m_faces[index];
+        }
+
+        /**
+         * @brief Get the number of Faces
+         * @return The number of Faces available
+         */
+        size_t
+        getFaceCount() const
+        {
+            return m_faces.size();
+        }
+
     private:
         /**
          * @brief perform subclass-specific operations to fetch all the segments
@@ -153,8 +190,7 @@ namespace ndn::chunks
 
     protected:
         const Options &m_options;
-        Face &m_face;
-        Face &m_face2;
+        std::vector<std::reference_wrapper<Face>> m_faces;
         Name m_prefix;
 
         PUBLIC_WITH_TESTS_ELSE_PROTECTED : bool m_hasFinalSplitId = false; ///< true if the last split number is known
@@ -172,14 +208,9 @@ namespace ndn::chunks
         uint64_t m_nextSplitNo = 0;
         time::steady_clock::time_point m_startTime;
         bool m_isStopping = false;
+        int64_t m_nReceivedFlow = 0;
+        std::ofstream m_outputFile;
     };
-
-    // template <typename Packet>
-    // uint64_t
-    // getSegmentFromPacket(const Packet &packet)
-    // {
-    //     return packet.getName().at(-1).toSegment();
-    // }
 
 } // namespace ndn::chunks
 

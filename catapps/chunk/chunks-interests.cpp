@@ -50,6 +50,7 @@ namespace ndn::chunks
     bool
     ChunksInterests::allChunksReceived() const
     {
+        std::cerr << "m_nReceived: " << m_nReceived << " m_options.TotalChunksNumber: " << m_options.TotalChunksNumber << std::endl;
         return m_nReceived == m_options.TotalChunksNumber;
     }
 
@@ -77,16 +78,17 @@ namespace ndn::chunks
     }
 
     void
-    ChunksInterests::onData()
+    ChunksInterests::onData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
         m_nReceived++;
+        m_onData(data);
         // m_receivedSize += data.getContent().value_size();
         if (allChunksReceived())
         {
-            m_splitinterest->onData();
+            m_splitinterest->receivedSplitincrement();
             printSummary();
         }
-        m_onData();
+        m_splitinterest->onData(data);
     }
 
     // void
@@ -156,6 +158,12 @@ namespace ndn::chunks
     ChunksInterests::setSplitinterest(SplitInterestsAdaptive *splitinterest)
     {
         m_splitinterest = splitinterest;
+    }
+
+    SplitInterestsAdaptive *
+    ChunksInterests::getSplitinterest() const
+    {
+        return m_splitinterest;
     }
 
 } // namespace ndn::chunks

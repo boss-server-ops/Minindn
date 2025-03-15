@@ -43,6 +43,7 @@ namespace ndn::chunks
     // Chunks pipeline options
     size_t TotalChunksNumber = 5; ///< total number of chunks in the Aggregation process
 
+    std::string outputFile = "../experiments/output.txt"; ///< output file name
     // Recording cycle
     time::milliseconds recordingCycle = time::milliseconds(1000);
     std::string topoFile = "../../topologies/Customtest.conf";

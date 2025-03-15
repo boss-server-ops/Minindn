@@ -1,5 +1,6 @@
 #include "pipeline-interests.hpp"
 #include "data-fetcher.hpp"
+#include "../chunk/chunks-interests-adaptive.hpp"
 
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/post.hpp>

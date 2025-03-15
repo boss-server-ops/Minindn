@@ -78,7 +78,14 @@ namespace ndn::chunks
     if (hasTimeout)
     {
       recordTimeout(highTimeoutSeg);
-      schedulePackets();
+      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      {
+        schedulePackets();
+      }
+      else
+      {
+        spdlog::debug("should pause flow");
+      }
     }
 
     // schedule the next check after predefined interval
@@ -207,6 +214,7 @@ namespace ndn::chunks
         m_scheduleEvent.cancel();
       }
       spdlog::debug("schedule beacause of inflight is 0");
+
       m_scheduleEvent = m_scheduler.schedule(time::milliseconds(0), [this]
                                              { schedulePackets(); });
     }
@@ -226,8 +234,17 @@ namespace ndn::chunks
     }
     if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
     {
-      m_waitEvent = m_scheduler.schedule(time::milliseconds(0), [this]
-                                         { wait(); });
+      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      {
+        m_waitEvent = m_scheduler.schedule(time::milliseconds(0), [this]
+                                           { schedulePackets(); });
+      }
+      else
+      {
+        spdlog::debug("should pause flow");
+        m_waitEvent = m_scheduler.schedule(time::milliseconds(0), [this]
+                                           { wait(); });
+      }
     }
     else
     {
@@ -322,9 +339,7 @@ namespace ndn::chunks
     {
       increaseWindow();
     }
-
     onData(data);
-
     // do not sample RTT for retransmitted segments
     if ((segInfo.state == SegmentState::FirstTimeSent ||
          segInfo.state == SegmentState::InRetxQueue) &&
@@ -348,12 +363,18 @@ namespace ndn::chunks
       if (!m_options.isQuiet)
       {
         printSummary();
-        m_chunker->onData();
       }
     }
     else
     {
-      schedulePackets();
+      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      {
+        schedulePackets();
+      }
+      else
+      {
+        spdlog::debug("should pause flow");
+      }
     }
   }
 
@@ -382,7 +403,14 @@ namespace ndn::chunks
       spdlog::debug("enqueue happened from handleNack");
       enqueueForRetransmission(segNo);
       recordTimeout(segNo);
-      schedulePackets();
+      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      {
+        schedulePackets();
+      }
+      else
+      {
+        spdlog::debug("should pause flow");
+      }
       break;
     default:
       handleFail(segNo, "Could not retrieve data for " + interest.getName().toUri() +
@@ -403,7 +431,14 @@ namespace ndn::chunks
     spdlog::debug("enqueue happened from handleLifetimeExpiration");
     enqueueForRetransmission(segNo);
     recordTimeout(segNo);
-    schedulePackets();
+    if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+    {
+      schedulePackets();
+    }
+    else
+    {
+      spdlog::debug("should pause flow");
+    }
   }
 
   void

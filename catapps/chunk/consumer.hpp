@@ -56,7 +56,7 @@ namespace ndn::chunks
 
     private:
         void
-        handleData();
+        handleData(std::map<uint64_t, std::shared_ptr<const Data>> &data);
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
                                          writeInOrderData();

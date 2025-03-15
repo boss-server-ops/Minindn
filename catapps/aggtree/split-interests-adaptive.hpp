@@ -11,6 +11,7 @@
 
 #include <queue>
 #include <unordered_map>
+#include <vector>
 
 namespace ndn::chunks
 {
@@ -20,9 +21,6 @@ namespace ndn::chunks
     class Consumer;
 
     using util::RttEstimatorWithStats;
-
-    // std::ostream &
-    // operator<<(std::ostream &os, SplitState state);
 
     /**
      * @brief Wraps up information that's necessary for split transmission
@@ -54,7 +52,9 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace. After this
          * configuration the method run must be called to start the Split.
          */
-        SplitInterestsAdaptive(Face &face, Face &face2, RttEstimatorWithStats &rttEstimator, const Options &opts);
+        SplitInterestsAdaptive(std::vector<std::reference_wrapper<Face>> faces,
+                               RttEstimatorWithStats &rttEstimator,
+                               const Options &opts);
 
         ~SplitInterestsAdaptive() override;
 
@@ -95,14 +95,6 @@ namespace ndn::chunks
          * @param value the new congestion window size
          */
         void safe_setWindowSize(double value);
-        // /*
-        //  * @brief A safe way to increase the slow start threshold.
-        //  */
-        // void safe_SsthreshIncrement(double value);
-        // /*
-        //  * @brief A safe way to decrease the slow start threshold.
-        //  */
-        // void safe_SsthreshDecrement(double value);
         /**
          * @brief A safe way to set the slow start threshold.
          * @param value the new slow start threshold
@@ -139,19 +131,6 @@ namespace ndn::chunks
         void
         printOptions() const;
 
-        // private:
-        //     /**
-        //      * @brief Increase congestion window.
-        //      */
-        //     virtual void
-        //     increaseWindow() = 0;
-
-        //     /**
-        //      * @brief Decrease congestion window.
-        //      */
-        //     virtual void
-        //     decreaseWindow() = 0;
-
     private:
         /**
          * @brief Fetch all the splits between 0 and lastSplit of the specified prefix.
@@ -169,25 +148,25 @@ namespace ndn::chunks
         void
         doCancel() final;
 
-        // /**
-        //  * @brief Check RTO for all sent-but-not-acked splits.
-        //  */
-        // void
-        // checkRto();
-
         /**
          * @param interestName the name of the Interest to be sent
+         * @param faceIndex index of the Face to use for sending the Interest
          */
         void
-        sendInterest(Name &interestName);
-
-        void
-        sendInterest2(Name &interestName);
+        sendInterest(Name &interestName, size_t faceIndex);
 
         /**
          * TODO: add comment
          */
         void sendInitialInterest();
+
+        /**
+         * @brief Distribute Interest sending across available Faces
+         * @param interestName the name of the Interest to be sent
+         * @return the index of the Face used to send the Interest
+         */
+        size_t
+        getNextFaceIndex();
 
         void
         handleData(const Interest &interest, const Data &data);
@@ -214,19 +193,14 @@ namespace ndn::chunks
         void
         recordThroughput();
 
-        // PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
-        //                                  printSummary() const final;
-
         PUBLIC_WITH_TESTS_ELSE_PROTECTED : static constexpr double MIN_SSTHRESH = 2.0;
 
         double m_cwnd;     ///< current congestion window size (in splits)
         double m_ssthresh; ///< current slow start threshold
         RttEstimatorWithStats &m_rttEstimator;
 
-        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler;
-        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler2;
+        PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::vector<std::unique_ptr<Scheduler>> m_schedulers; ///< one scheduler per Face
         scheduler::ScopedEventId m_recordEvent;
-        // scheduler::ScopedEventId m_checkRtoEvent;
 
         uint64_t m_highData = 0;     ///< the highest split number of the Data packet the consumer has received so far
         uint64_t m_highInterest = 0; ///< the highest split number of the Interests the consumer has sent so far
@@ -242,6 +216,7 @@ namespace ndn::chunks
         int64_t m_nRetransmitted = 0; ///< # of retransmitted splits
         int64_t m_nCongMarks = 0;     ///< # of data packets with congestion mark
         int64_t m_nSent = 0;          ///< # of interest packets sent out (including retransmissions)
+        size_t m_nextFaceIndex = 0;   ///< index of the next Face to use for sending Interest
 
         std::unordered_map<std::string, SplitInfo> m_splitInfo; ///< keeps all the internal information
                                                                 ///< on sent but not acked splits
@@ -254,8 +229,6 @@ namespace ndn::chunks
         uint64_t m_failedChuNo = 0;
         std::string m_failureReason;
 
-        // std::unordered_map<uint64_t, DiscoverVersion *> m_ChuDiscover;
-        // std::unordered_map<uint64_t, PipelineInterestsAimd *> m_ChuPipeline;
         DiscoverVersion *m_discover;
     };
 

@@ -36,29 +36,37 @@ namespace ndn::chunks
 
     m_validator.validate(data, [this, dataPtr](const Data &data)
                          {
-      if (data.getContentType() == ndn::tlv::ContentType_Nack) {
-        NDN_THROW(ApplicationNackError(data));
-      }
+                           if (data.getContentType() == ndn::tlv::ContentType_Nack)
+                           {
+                             NDN_THROW(ApplicationNackError(data));
+                           }
 
-      // 'data' passed to callback comes from DataValidationState and was not created with make_shared
-      m_bufferedData[getSegmentFromPacket(data)] = dataPtr;
-      writeInOrderData(); }, [](const Data &, const security::ValidationError &error)
+                           // 'data' passed to callback comes from DataValidationState and was not created with make_shared
+                           m_bufferedData[getSegmentFromPacket(data)] = dataPtr;
+                           // writeInOrderData();
+                         },
+                         [](const Data &, const security::ValidationError &error)
                          { NDN_THROW(DataValidationError(error)); });
+    if (m_pipeline->allSegmentsReceived())
+    {
+      m_pipeline->getChunker()->onData(m_bufferedData);
+      m_bufferedData.clear();
+    }
   }
 
-  void
-  Pipeliner::writeInOrderData()
-  {
-    // for (auto it = m_bufferedData.begin();
-    //      it != m_bufferedData.end() && it->first == m_nextToPrint;
-    //      it = m_bufferedData.erase(it), ++m_nextToPrint)
-    // {
-    //   const Block &content = it->second->getContent();
-    //   m_outputStream.write(reinterpret_cast<const char *>(content.value()), content.value_size());
-    // }
-    // m_pipeline->getChunker()->schedulePackets();
-    // std::cerr << "Finished segments data" << std::endl;
-    // spdlog::info("Finished segments data");
-  }
+  // void
+  // Pipeliner::writeInOrderData()
+  // {
+  //   for (auto it = m_bufferedData.begin();
+  //        it != m_bufferedData.end() && it->first == m_nextToPrint;
+  //        it = m_bufferedData.erase(it), ++m_nextToPrint)
+  //   {
+  //     const Block &content = it->second->getContent();
+  //     m_outputStream.write(reinterpret_cast<const char *>(content.value()), content.value_size());
+  //   }
+  //   m_pipeline->getChunker()->schedulePackets();
+  //   std::cerr << "Finished segments data" << std::endl;
+  //   spdlog::info("Finished segments data");
+  // }
 
 } // namespace ndn::chunks

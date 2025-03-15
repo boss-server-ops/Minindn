@@ -32,7 +32,7 @@ namespace ndn::chunks
     }
 
     void
-    Splitter::handleData()
+    Splitter::handleData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
         return;
     }

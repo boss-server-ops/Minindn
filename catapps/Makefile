@@ -6,7 +6,7 @@ CXXFLAGS = -std=c++17
 LIBS = -lndn-cxx -lboost_system -lspdlog -lfmt -lstdc++fs -lboost_program_options
 
 # 指定源文件和目标文件
-SRC_DIRS = chunk pipeline aggtree
+SRC_DIRS = chunk pipeline aggtree controller
 CONSUMER_SRC = $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.cpp)) main.cpp
 CONSUMER_OBJ = consumer
 

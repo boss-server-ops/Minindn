@@ -200,5 +200,6 @@ namespace ndn::chunks
 
 int main(int argc, char *argv[])
 {
+    std::remove("logs/producer.log");
     return ndn::chunks::main(argc, argv);
 }

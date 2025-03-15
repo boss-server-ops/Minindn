@@ -1,5 +1,4 @@
 #include "aggtree/splitter.hpp"
-#include "aggtree/splitter.hpp"
 #include "aggtree/split-interests-adaptive.hpp"
 #include "pipeline/discover-version.hpp"
 #include "pipeline/pipeline-interests-aimd.hpp"
@@ -19,6 +18,8 @@
 #include <fstream>
 #include <iostream>
 #include <spdlog/spdlog.h>
+#include <vector>
+#include <thread>
 
 namespace ndn::chunks
 {
@@ -46,6 +47,7 @@ namespace ndn::chunks
            << "    naming-convention          Encoding convention to use for name components, either 'marker' or 'typed'\n"
            << "    quiet                      Suppress all diagnostic output, except fatal errors (true/false)\n"
            << "    verbose                    Turn on verbose output (per segment information) (true/false)\n"
+           << "    num-faces                  Number of faces to use for parallel data retrieval\n"
            << "  [AdaptivePipeline]\n"
            << "    ignore-marks               Do not reduce the window after receiving a congestion mark (true/false)\n"
            << "    disable-cwa                Disable Conservative Window Adaptation (true/false)\n"
@@ -67,7 +69,10 @@ namespace ndn::chunks
     }
 
     static bool
-    readConfigFile(const std::string &filename, Options &opts, std::string &prefix, std::string &nameConv, std::string &pipelineType, std::string &cwndPath, std::string &rttPath, std::shared_ptr<util::RttEstimator::Options> &rttEstOptions, std::string &logLevel)
+    readConfigFile(const std::string &filename, Options &opts, std::string &prefix,
+                   std::string &nameConv, std::string &pipelineType, std::string &cwndPath,
+                   std::string &rttPath, std::shared_ptr<util::RttEstimator::Options> &rttEstOptions,
+                   std::string &logLevel, int &numFaces)
     {
         pt::ptree tree;
         try
@@ -90,6 +95,14 @@ namespace ndn::chunks
             opts.isQuiet = tree.get<bool>("General.quiet", opts.isQuiet);
             opts.isVerbose = tree.get<bool>("General.verbose", opts.isVerbose);
             opts.TotalChunksNumber = tree.get<size_t>("General.totalchunksnumber", opts.TotalChunksNumber);
+
+            // 读取face数量
+            numFaces = tree.get<int>("General.num-faces", 2); // 默认两个face
+            if (numFaces < 1)
+            {
+                std::cerr << "ERROR: num-faces must be at least 1\n";
+                return false;
+            }
 
             opts.ignoreCongMarks = tree.get<bool>("AdaptivePipeline.ignore-marks", opts.ignoreCongMarks);
             opts.disableCwa = tree.get<bool>("AdaptivePipeline.disable-cwa", opts.disableCwa);
@@ -123,11 +136,16 @@ namespace ndn::chunks
     static int
     main(int argc, char *argv[])
     {
+        auto m_logger = spdlog::basic_logger_mt("splitter_logger", "logs/consumer.log");
+        spdlog::set_default_logger(m_logger);
+        spdlog::set_level(spdlog::level::debug);
+        spdlog::flush_on(spdlog::level::debug);
         const std::string programName(argv[0]);
 
         Options options;
         std::string prefix, nameConv, pipelineType("aimd"), logLevel, logFile;
         std::string cwndPath, rttPath;
+        int numFaces = 2; // 默认使用2个face
         auto rttEstOptions = std::make_shared<util::RttEstimator::Options>();
         rttEstOptions->k = 8; // increased from the ndn-cxx default of 4
 
@@ -152,7 +170,8 @@ namespace ndn::chunks
             return 0;
         }
 
-        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType, cwndPath, rttPath, rttEstOptions, logLevel))
+        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType,
+                            cwndPath, rttPath, rttEstOptions, logLevel, numFaces))
         {
             return 2;
         }
@@ -213,12 +232,19 @@ namespace ndn::chunks
             std::cerr << "ERROR: --max-rto cannot be smaller than --min-rto\n";
             return 2;
         }
+
         std::atomic<bool> shouldStop{false};
         try
         {
-            Face face;
-            Face face2;
-            auto discover = std::make_unique<DiscoverVersion>(face, Name(prefix), options);
+            // 创建多个face
+            std::vector<std::unique_ptr<Face>> faces;
+            for (int i = 0; i < numFaces; i++)
+            {
+                faces.push_back(std::make_unique<Face>());
+                spdlog::info("Created Face #{}", i);
+            }
+
+            auto discover = std::make_unique<DiscoverVersion>(*faces[0], Name(prefix), options);
             std::unique_ptr<PipelineInterestsAimd> pipeline;
             std::unique_ptr<StatisticsCollector> statsCollector;
             std::unique_ptr<RttEstimatorWithStats> rttEstimator;
@@ -239,9 +265,20 @@ namespace ndn::chunks
             }
             rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
 
-            pipeline = std::make_unique<PipelineInterestsAimd>(face, *rttEstimator, options);
-            std::unique_ptr<SplitInterests> split = std::make_unique<SplitInterestsAdaptive>(face, face2, *rttEstimator, options);
-            spdlog::debug("finished creating split");
+            pipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
+
+            // 创建Face引用的vector
+            std::vector<std::reference_wrapper<Face>> faceRefs;
+            for (size_t i = 0; i < faces.size(); i++)
+            {
+                faceRefs.emplace_back(std::ref(*faces[i]));
+            }
+
+            std::unique_ptr<SplitInterests> split = std::make_unique<SplitInterestsAdaptive>(
+                faceRefs, *rttEstimator, options);
+
+            spdlog::debug("finished creating split with {} faces", numFaces);
+
             if (!cwndPath.empty() || !rttPath.empty())
             {
                 if (!cwndPath.empty())
@@ -273,40 +310,49 @@ namespace ndn::chunks
             splitter.run(std::move(discover), std::move(split));
             spdlog::info("starting processing events");
 
-            std::thread face2Thread([&face2, &shouldStop]()
-                                    {
-                try {
-                    while (!shouldStop) {
-                        face2.processEvents();
-                        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            // 为除了主Face之外的所有Face创建处理线程
+            std::vector<std::thread> faceThreads;
+            for (size_t i = 1; i < faces.size(); i++)
+            {
+                faceThreads.emplace_back([i, &faces, &shouldStop]()
+                                         {
+                    try {
+                        spdlog::info("Starting event processing for Face #{}", i);
+                        while (!shouldStop) {
+                            faces[i]->processEvents();
+                            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                        }
                     }
-                }
-                catch (const std::exception& e) {
-                    spdlog::error("Face2处理事件出错: {}", e.what());
-                } });
+                    catch (const std::exception& e) {
+                        spdlog::error("Face #{} 处理事件出错: {}", i, e.what());
+                    } });
+            }
 
-            spdlog::info("starting processing events for face1");
+            spdlog::info("starting processing events for main Face #0");
 
             try
             {
                 // 主线程处理face的事件
-                face.processEvents();
+                faces[0]->processEvents();
             }
             catch (const std::exception &e)
             {
-                spdlog::error("Face1处理事件出错: {}", e.what());
+                spdlog::error("Face #0 处理事件出错: {}", e.what());
             }
 
-            // 主face处理结束，通知face2线程也结束
+            // 主face处理结束，通知其他线程也结束
             shouldStop = true;
 
-            // 等待face2线程结束
-            if (face2Thread.joinable())
+            // 等待所有线程结束
+            for (auto &thread : faceThreads)
             {
-                face2Thread.join();
+                if (thread.joinable())
+                {
+                    thread.join();
+                }
             }
 
-            spdlog::info("Finished processing events");
+            spdlog::info("Finished processing events on all faces");
         }
         catch (const Splitter::ApplicationNackError &e)
         {
@@ -331,9 +377,6 @@ namespace ndn::chunks
 
 int main(int argc, char *argv[])
 {
-    auto m_logger = spdlog::basic_logger_mt("splitter_logger", "logs/consumer.log");
-    spdlog::set_default_logger(m_logger);
-    spdlog::set_level(spdlog::level::debug);
-    spdlog::flush_on(spdlog::level::debug);
+    std::remove("logs/consumer.log");
     return ndn::chunks::main(argc, argv);
 }

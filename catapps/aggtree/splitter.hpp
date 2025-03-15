@@ -54,9 +54,11 @@ namespace ndn::chunks
         void
         run(std::unique_ptr<DiscoverVersion> discover, std::unique_ptr<SplitInterests> splits);
 
+        std::unique_ptr<SplitInterests> m_split;
+
     private:
         void
-        handleData();
+        handleData(std::map<uint64_t, std::shared_ptr<const Data>> &data);
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : void
                                          writeInOrderData();
@@ -65,7 +67,7 @@ namespace ndn::chunks
         security::Validator &m_validator;
         std::ostream &m_outputStream;
         std::unique_ptr<DiscoverVersion> m_discover;
-        std::unique_ptr<SplitInterests> m_split;
+
         uint64_t m_nextToPrint = 0;
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::map<uint64_t, std::shared_ptr<const Data>> m_bufferedData;

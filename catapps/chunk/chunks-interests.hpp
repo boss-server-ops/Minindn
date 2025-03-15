@@ -35,7 +35,7 @@ namespace ndn::chunks
 
         virtual ~ChunksInterests();
 
-        using DataCallback = std::function<void()>;
+        using DataCallback = std::function<void(std::map<uint64_t, std::shared_ptr<const Data>> &)>;
         using FailureCallback = std::function<void(const std::string &reason)>;
 
         /**
@@ -83,10 +83,13 @@ namespace ndn::chunks
          * @brief subclasses must call this method to notify successful retrieval of a chunk
          */
         void
-        onData();
+        onData(std::map<uint64_t, std::shared_ptr<const Data>> &m_bufferedData);
 
         void
         setSplitinterest(SplitInterestsAdaptive *splitinterest);
+
+        SplitInterestsAdaptive *
+        getSplitinterest() const;
 
     protected:
         time::steady_clock::time_point

@@ -82,6 +82,7 @@ void AggTree::getTreeTopology(const string &filename, const string &root)
 {
     readTopology(filename);
     rootChildCount = topology[root].children.size();
+    std::cerr << "Root child count: " << rootChildCount << std::endl;
     vector<string> currentPath;
     currentPath.push_back(root);
     findPaths(root, currentPath);
@@ -130,6 +131,16 @@ void AggTree::generateInterestNames()
         interestName.append(combinedPaths);
         interestNames.push_back(interestName);
     }
+}
+
+std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName) const
+{
+    auto it = topology.find(nodeName);
+    if (it != topology.end())
+    {
+        return it->second.children;
+    }
+    return {};
 }
 
 // int main()

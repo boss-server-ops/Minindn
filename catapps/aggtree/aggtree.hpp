@@ -31,6 +31,7 @@ public:
     void findPaths(const string &node, vector<string> currentPath);
     void getTreeTopology(const string &filename, const string &root);
     void generateInterestNames();
+    std::vector<std::string> getDirectChildren(const std::string &nodeName) const;
 
     // Public members
     unordered_map<string, Node> topology;

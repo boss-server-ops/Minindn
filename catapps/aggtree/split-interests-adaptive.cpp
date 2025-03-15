@@ -12,11 +12,19 @@
 namespace ndn::chunks
 {
 
-    SplitInterestsAdaptive::SplitInterestsAdaptive(Face &face, Face &face2,
+    SplitInterestsAdaptive::SplitInterestsAdaptive(std::vector<std::reference_wrapper<Face>> faces,
                                                    RttEstimatorWithStats &rttEstimator,
                                                    const Options &opts)
-        : SplitInterests(face, face2, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext()), m_scheduler2(m_face2.getIoContext())
+        : SplitInterests(std::move(faces), opts),
+          m_cwnd(m_options.initCwnd),
+          m_ssthresh(m_options.initSsthresh),
+          m_rttEstimator(rttEstimator)
     {
+        // Create a scheduler for each Face
+        for (size_t i = 0; i < getFaceCount(); ++i)
+        {
+            m_schedulers.push_back(std::make_unique<Scheduler>(getFace(i).getIoContext()));
+        }
     }
 
     SplitInterestsAdaptive::~SplitInterestsAdaptive()
@@ -28,17 +36,14 @@ namespace ndn::chunks
     SplitInterestsAdaptive::doRun()
     {
         spdlog::debug("SplitInterestsAdaptive::doRun() called");
-        m_aggTree.getTreeTopology(m_options.topoFile, "con0");
         if (allSplitReceived())
         {
             cancel();
-            // if (!m_options.isQuiet)
-            // {
-            //     printSummary();
-            // }
             return;
         }
-        recordThroughput();
+
+        m_recordEvent = m_schedulers[0]->schedule(time::milliseconds(0), [this]
+                                                  { recordThroughput(); });
         schedulePackets();
     }
 
@@ -50,19 +55,17 @@ namespace ndn::chunks
     }
 
     void
-    SplitInterestsAdaptive::sendInterest(Name &interestName)
+    SplitInterestsAdaptive::sendInterest(Name &interestName, size_t faceIndex)
     {
         if (isStopping())
             return;
 
-        // if (chuNo >= m_options.TotalSplitNumber)
-        //     return;
         std::string firstComponent = interestName.get(0).toUri();
 
         if (m_options.isVerbose)
         {
-            std::cerr << "Requesting interest with first component: " << firstComponent << "\n";
-            spdlog::debug("Requesting interest with first component: {}", firstComponent);
+            std::cerr << "Requesting interest with first component: " << firstComponent << " on Face #" << faceIndex << "\n";
+            spdlog::debug("Requesting interest with first component: {} on Face #{}", firstComponent, faceIndex);
         }
 
         SplitInfo &splitInfo = m_splitInfo[firstComponent];
@@ -70,9 +73,9 @@ namespace ndn::chunks
         {
             splitInfo.consumer = new Consumer(security::getAcceptAllValidator());
 
-            auto discover = std::make_unique<DiscoverVersion>(m_face, interestName, m_options);
+            auto discover = std::make_unique<DiscoverVersion>(getFace(faceIndex), interestName, m_options);
             std::unique_ptr<ChunksInterests> chunks =
-                std::make_unique<ChunksInterestsAdaptive>(m_face, m_rttEstimator, m_options);
+                std::make_unique<ChunksInterestsAdaptive>(getFace(faceIndex), m_rttEstimator, m_options);
             chunks->setSplitinterest(this);
             splitInfo.consumer->run(std::move(discover), std::move(chunks));
         }
@@ -95,52 +98,16 @@ namespace ndn::chunks
         m_nSent++;
         spdlog::debug("Finished sending first interest for interest name: {}", interestName.toUri());
     }
-    void
-    SplitInterestsAdaptive::sendInterest2(Name &interestName)
+
+    size_t
+    SplitInterestsAdaptive::getNextFaceIndex()
     {
-        if (isStopping())
-            return;
-
-        // if (chuNo >= m_options.TotalSplitNumber)
-        //     return;
-        std::string firstComponent = interestName.get(0).toUri();
-
-        if (m_options.isVerbose)
-        {
-            std::cerr << "Requesting interest with first component: " << firstComponent << "\n";
-            spdlog::debug("Requesting interest with first component: {}", firstComponent);
-        }
-
-        SplitInfo &splitInfo = m_splitInfo[firstComponent];
-        try
-        {
-            splitInfo.consumer = new Consumer(security::getAcceptAllValidator());
-
-            auto discover = std::make_unique<DiscoverVersion>(m_face2, interestName, m_options);
-            std::unique_ptr<ChunksInterests> chunks =
-                std::make_unique<ChunksInterestsAdaptive>(m_face2, m_rttEstimator, m_options);
-            chunks->setSplitinterest(this);
-            splitInfo.consumer->run(std::move(discover), std::move(chunks));
-        }
-        catch (const Consumer::ApplicationNackError &e)
-        {
-            std::cerr << "ERROR: " << e.what() << "\n";
-            return;
-        }
-        catch (const Consumer::DataValidationError &e)
-        {
-            std::cerr << "ERROR: " << e.what() << "\n";
-            return;
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "ERROR: " << e.what() << "\n";
-            return;
-        }
-        splitInfo.timeSent = time::steady_clock::now();
-        m_nSent++;
-        spdlog::debug("Finished sending first interest for interest name: {}", interestName.toUri());
+        // Simple round-robin strategy
+        size_t index = m_nextFaceIndex;
+        m_nextFaceIndex = (m_nextFaceIndex + 1) % getFaceCount();
+        return index;
     }
+
     void
     SplitInterestsAdaptive::recordThroughput()
     {
@@ -153,7 +120,7 @@ namespace ndn::chunks
             double throughput = 8 * (*m_received) / (m_options.recordingCycle.count() / 1000.0);
             *m_received = 0;
 
-            // 读取拓扑文件中的参数
+            // Read parameters from topology file
             std::ifstream topoFile(m_options.topoFile);
             std::string line;
             std::string filename;
@@ -177,7 +144,7 @@ namespace ndn::chunks
                             std::string max_queue_size = params[3].substr(params[3].find('=') + 1);
                             std::string loss = params[4].substr(params[4].find('=') + 1);
 
-                            // 读取proconfig.ini文件中的split-size
+                            // Read split-size from proconfig.ini file
                             std::ifstream proconfigFile("../../chunkworkdir/experiments/conconfig.ini");
                             std::string splitSize;
                             if (proconfigFile.is_open())
@@ -221,14 +188,14 @@ namespace ndn::chunks
         {
             m_recordEvent.cancel();
         }
-        m_recordEvent = m_scheduler.schedule(time::milliseconds(0), [this]
-                                             { recordThroughput(); });
+        // Use the first Face's scheduler to handle throughput recording
+        m_recordEvent = m_schedulers[0]->schedule(time::milliseconds(0), [this]
+                                                  { recordThroughput(); });
     }
 
     void
     SplitInterestsAdaptive::sendInitialInterest()
     {
-
         for (auto interestName : m_aggTree.interestNames)
         {
             interestName.append("init");
@@ -237,12 +204,13 @@ namespace ndn::chunks
             interest.setCanBePrefix(false);
             interest.setMustBeFresh(true);
 
-            m_face.expressInterest(interest, [this](const Interest &, const Data &data)
-                                   {
-                spdlog::info("Successfully received data: {}", data.getName().toUri());
-                initOnData(data); }, [this](const Interest &, const lp::Nack &nack)
-                                   { spdlog::warn("Received Nack for interest: {}", nack.getInterest().getName().toUri()); }, [this](const Interest &interest)
-                                   { spdlog::error("Interest timed out: {}", interest.getName().toUri()); });
+            // Use the first Face to send initial interest packets
+            getFace(0).expressInterest(interest, [this](const Interest &, const Data &data)
+                                       {
+                    spdlog::info("Successfully received data: {}", data.getName().toUri());
+                    initOnData(data); }, [this](const Interest &, const lp::Nack &nack)
+                                       { spdlog::warn("Received Nack for interest: {}", nack.getInterest().getName().toUri()); }, [this](const Interest &interest)
+                                       { spdlog::error("Interest timed out: {}", interest.getName().toUri()); });
 
             spdlog::info("Sent interest: {}", interestName.toUri());
         }
@@ -257,14 +225,14 @@ namespace ndn::chunks
 
     void SplitInterestsAdaptive::safe_WindowIncrement(double value)
     {
-
         m_cwnd += value;
     }
+
     void SplitInterestsAdaptive::safe_WindowDecrement(double value)
     {
-
         m_cwnd -= value;
     }
+
     void SplitInterestsAdaptive::safe_setWindowSize(double value)
     {
         m_cwnd = value;
@@ -279,6 +247,7 @@ namespace ndn::chunks
     {
         m_nInFlight++;
     }
+
     void SplitInterestsAdaptive::safe_InFlightDecrement()
     {
         m_nInFlight--;
@@ -304,23 +273,24 @@ namespace ndn::chunks
     {
         spdlog::info("Data received: {}", data.getName().toUri());
 
-        // Add the received data name to a set to track received interests
+        // Add received data name to the set to track received interests
         m_receivedinitialInterests.insert(data.getName());
 
         // Check if all interests have been received
         if (m_receivedinitialInterests.size() == m_aggTree.interestNames.size())
         {
             spdlog::info("All initial interests have been successfully received.");
-            // Schedule sending interests for all interest names
-            // for (auto &interestName : m_aggTree.interestNames)
-            // {
-            //     m_scheduler.schedule(time::milliseconds(0), [this, &interestName]
-            //                          { sendInterest(interestName); });
-            // }
-            m_scheduler.schedule(time::milliseconds(0), [this, &interestName = m_aggTree.interestNames[0]]
-                                 { sendInterest(interestName); });
-            m_scheduler2.schedule(time::milliseconds(0), [this, &interestName = m_aggTree.interestNames[1]]
-                                  { sendInterest2(interestName); });
+
+            // Distribute interests across available Faces
+            for (size_t i = 0; i < m_aggTree.interestNames.size(); ++i)
+            {
+                size_t faceIndex = i % getFaceCount(); // Simple distribution across Faces
+                Name &interestName = m_aggTree.interestNames[i];
+
+                m_schedulers[faceIndex]->schedule(time::milliseconds(0),
+                                                  [this, &interestName, faceIndex]
+                                                  { sendInterest(interestName, faceIndex); });
+            }
         }
     }
 

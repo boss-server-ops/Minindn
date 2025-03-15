@@ -9,9 +9,14 @@
 namespace ndn::chunks
 {
 
-    SplitInterests::SplitInterests(Face &face, Face &face2, const Options &opts)
-        : m_options(opts), m_face(face), m_face2(face2)
+    SplitInterests::SplitInterests(std::vector<std::reference_wrapper<Face>> faces, const Options &opts)
+        : m_options(opts), m_faces(std::move(faces))
     {
+        // ensure at least one Face is provided
+        if (m_faces.empty())
+        {
+            throw std::invalid_argument("At least one Face must be provided");
+        }
     }
 
     SplitInterests::~SplitInterests() = default;
@@ -35,6 +40,9 @@ namespace ndn::chunks
         m_timeStamp = time::steady_clock::now();
 
         m_received = new size_t(0);
+        m_aggTree.getTreeTopology(m_options.topoFile, "con0");
+        m_outputFile.open(m_options.outputFile, std::ios::binary);
+        m_flowController = FlowController::createFromAggTree("../experiments/conconfig.ini", m_outputFile, m_aggTree, "con0");
         doRun();
     }
 
@@ -51,7 +59,7 @@ namespace ndn::chunks
     bool
     SplitInterests::allSplitReceived() const
     {
-        return m_nReceived == m_aggTree.rootChildCount;
+        return m_nReceivedFlow == m_aggTree.rootChildCount;
     }
 
     uint64_t
@@ -74,19 +82,57 @@ namespace ndn::chunks
     void
     SplitInterests::receivedSplitincrement()
     {
-        m_nReceived++;
+        m_nReceivedFlow++;
     }
 
     void
-    SplitInterests::onData()
+    SplitInterests::onData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
-        m_nReceived++;
+        m_onData(data);
+
+        // obtain information from the first data packet
+        if (!data.empty())
+        {
+            auto &firstData = data.begin()->second;
+            const Name &dataName = firstData->getName();
+
+            //  extract node name and chunk number from the name
+            if (dataName.size() >= 3)
+            {
+                std::string nodeName = dataName[0].toUri();
+
+                // chunknumber is a form of string, need to convert
+                std::string chunkNumberStr = dataName[1].toUri();
+                uint64_t chunkNumber = 0;
+                try
+                {
+                    // remove possible URI-encoded characters
+                    if (chunkNumberStr.front() == '/' || chunkNumberStr.front() == '%')
+                    {
+                        chunkNumberStr = chunkNumberStr.substr(1);
+                    }
+                    chunkNumber = std::stoull(chunkNumberStr);
+
+                    spdlog::debug("Processing data from node {}, chunk {}", nodeName, chunkNumber);
+
+                    m_flowController->addChunk(nodeName, chunkNumber, data);
+                }
+                catch (const std::exception &e)
+                {
+                    spdlog::error("Failed to parse chunk number '{}': {}", chunkNumberStr, e.what());
+                }
+            }
+            else
+            {
+                spdlog::warn("Data name has incorrect format: {}", dataName.toUri());
+            }
+        }
+
         if (allSplitReceived())
         {
             printSummary();
             cancel();
         }
-        m_onData();
     }
 
     // void

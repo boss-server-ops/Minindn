@@ -51,6 +51,14 @@ namespace ndn::chunks
      */
     void
     cancel();
+
+    /**
+     * @brief check if the transfer is complete
+     * @return true if all segments have been received, false otherwise
+     */
+    [[nodiscard]] bool
+    allSegmentsReceived() const;
+
     /**
      * @brief set the chunker for this pipeline
      */
@@ -82,13 +90,6 @@ namespace ndn::chunks
     {
       return m_isStopping;
     }
-
-    /**
-     * @brief check if the transfer is complete
-     * @return true if all segments have been received, false otherwise
-     */
-    [[nodiscard]] bool
-    allSegmentsReceived() const;
 
     /**
      * @return next segment number to retrieve
