@@ -11,6 +11,7 @@
 #include <ndn-cxx/name.hpp>
 
 #include <functional>
+#include <mutex>
 #include <vector>
 
 namespace ndn::chunks
@@ -199,6 +200,7 @@ namespace ndn::chunks
         size_t m_receivedSize = 0;                                         ///< size of received data in bytes
         time::steady_clock::time_point m_timeStamp;                        ///< used to record the throughput
         size_t *m_received = nullptr;
+        mutable std::mutex m_receivedMutex;
         AggTree m_aggTree; ///< size of segments within a recording cycle
         std::unordered_set<Name> m_receivedinitialInterests;
 

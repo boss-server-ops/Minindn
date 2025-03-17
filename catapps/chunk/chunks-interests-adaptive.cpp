@@ -118,6 +118,7 @@ namespace ndn::chunks
         // recordThroughput();
     }
 
+    // it isn't used
     void
     ChunksInterestsAdaptive::recordThroughput()
     {

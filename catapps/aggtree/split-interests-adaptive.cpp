@@ -41,7 +41,10 @@ namespace ndn::chunks
             cancel();
             return;
         }
-
+        if (m_recordEvent)
+        {
+            m_recordEvent.cancel();
+        }
         m_recordEvent = m_schedulers[0]->schedule(time::milliseconds(0), [this]
                                                   { recordThroughput(); });
         schedulePackets();
@@ -111,6 +114,7 @@ namespace ndn::chunks
     void
     SplitInterestsAdaptive::recordThroughput()
     {
+        std::lock_guard<std::mutex> lock(m_receivedMutex);
         static bool firstTime = true;
         time::steady_clock::time_point now = time::steady_clock::now();
         using namespace ndn::time;

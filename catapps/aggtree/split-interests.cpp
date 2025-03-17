@@ -38,7 +38,7 @@ namespace ndn::chunks
 
         // record the first timestamp
         m_timeStamp = time::steady_clock::now();
-
+        std::lock_guard<std::mutex> lock(m_receivedMutex);
         m_received = new size_t(0);
         m_aggTree.getTreeTopology(m_options.topoFile, "con0");
         m_outputFile.open(m_options.outputFile, std::ios::binary);
@@ -76,6 +76,7 @@ namespace ndn::chunks
 
     uint64_t *SplitInterests::getReceived()
     {
+        std::lock_guard<std::mutex> lock(m_receivedMutex);
         return m_received;
     }
 
