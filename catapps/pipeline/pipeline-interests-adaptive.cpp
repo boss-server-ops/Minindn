@@ -178,8 +178,6 @@ namespace ndn::chunks
     BOOST_ASSERT(m_nInFlight >= 0);
     auto availableWindowSize = static_cast<int64_t>(m_chunker->safe_getWindowSize()) - m_chunker->safe_getInFlight();
     spdlog::debug("Available window size: {}", availableWindowSize);
-    // static bool m_hasSent = false; ///< flag to indicate if the first interest has been sent
-    // bool canSend = !m_hasSent || m_hasFinalBlockId;
     while (availableWindowSize > 0)
     {
       // // if it is the first time to send the interest, we need to record the starttime
@@ -188,7 +186,6 @@ namespace ndn::chunks
       //   setStartTime(time::steady_clock::now());
       //   m_hasSent = true;
       // }
-      // m_hasSent = true;
       spdlog::debug("Available window size: {}", availableWindowSize);
       if (!m_retxQueue.empty())
       { // do retransmission first
@@ -235,7 +232,7 @@ namespace ndn::chunks
     {
       m_waitEvent.cancel();
     }
-    if (!m_hasFinalBlockId || ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo))
+    if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
     {
       if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {

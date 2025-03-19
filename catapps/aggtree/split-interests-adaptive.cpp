@@ -132,7 +132,7 @@ namespace ndn::chunks
             {
                 while (std::getline(topoFile, line))
                 {
-                    if (line.find("con0") != std::string::npos)
+                    if (line.find("con0:pro0") != std::string::npos)
                     {
                         std::istringstream iss(line);
                         std::string token;
