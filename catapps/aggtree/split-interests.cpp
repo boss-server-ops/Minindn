@@ -103,7 +103,7 @@ namespace ndn::chunks
                 std::string nodeName = dataName[0].toUri();
 
                 // chunknumber is a form of string, need to convert
-                std::string chunkNumberStr = dataName[1].toUri();
+                std::string chunkNumberStr = dataName[-2].toUri();
                 uint64_t chunkNumber = 0;
                 try
                 {

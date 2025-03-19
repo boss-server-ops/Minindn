@@ -16,7 +16,6 @@
 
 namespace ndn::chunks
 {
-    // 原始的 DataChunk 类型，保持 map 结构
     using DataChunk = std::map<uint64_t, std::shared_ptr<const Data>>;
 
     class FlowController
