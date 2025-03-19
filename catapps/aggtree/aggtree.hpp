@@ -31,7 +31,6 @@ public:
     void findPaths(const string &node, vector<string> currentPath);
     void getTreeTopology(const string &filename, const string &root);
     void generateInterestNames();
-    std::string buildHierarchyString(const string &node, const std::map<string, std::vector<string>> &childrenMap);
     std::vector<std::string> getDirectChildren(const std::string &nodeName) const;
 
     // Public members
@@ -39,6 +38,7 @@ public:
     vector<vector<string>> paths;
     vector<Name> interestNames;
     size_t rootChildCount = 0;
+    string rootName = "con0";
 };
 
 #endif // IMAGG_AGGTREE_HPP

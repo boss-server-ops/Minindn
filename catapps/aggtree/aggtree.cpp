@@ -90,96 +90,47 @@ void AggTree::getTreeTopology(const string &filename, const string &root)
 }
 
 // Generate interest names for each path and store in member variable
-
 void AggTree::generateInterestNames()
 {
     interestNames.clear();
+    unordered_map<string, vector<string>> aggregatedPaths;
 
-    // Process each first-level component (direct children of the root)
-    for (const string &firstLevelNode : topology["con0"].children)
+    // Aggregate paths by their first component after the root
+    for (const auto &path : paths)
     {
-        Name interestName;
-        interestName.append(firstLevelNode); // First component is the node name itself
-
-        // Create a map of each node to its direct children
-        std::map<string, std::vector<string>> directChildrenMap;
-
-        // Fill the map with node relationships from our paths
-        for (const auto &path : paths)
+        if (path.size() > 1)
         {
-            if (path.size() > 1 && path[1] == firstLevelNode)
+            string firstComponent = path[1];
+            string aggregatedPath;
+            for (size_t i = 2; i < path.size(); ++i)
             {
-                // Process each parent-child relationship in the path
-                for (size_t i = 1; i < path.size() - 1; ++i)
+                aggregatedPath += path[i];
+                if (i < path.size() - 1)
                 {
-                    directChildrenMap[path[i]].push_back(path[i + 1]);
+                    aggregatedPath += "/";
                 }
             }
+            aggregatedPaths[firstComponent].push_back(aggregatedPath);
         }
+    }
 
-        // Remove duplicate children
-        for (auto &entry : directChildrenMap)
+    // Generate interest names
+    for (const auto &entry : aggregatedPaths)
+    {
+        Name interestName;
+        interestName.append(entry.first);
+        string combinedPaths;
+        for (const auto &path : entry.second)
         {
-            std::sort(entry.second.begin(), entry.second.end());
-            entry.second.erase(std::unique(entry.second.begin(), entry.second.end()), entry.second.end());
-        }
-
-        // Check if this node has any children
-        auto it = directChildrenMap.find(firstLevelNode);
-        if (it != directChildrenMap.end() && !it->second.empty())
-        {
-            // Build structure strings for each direct child
-            std::vector<std::string> childStructures;
-            for (const auto &childNode : it->second)
+            if (!combinedPaths.empty())
             {
-                std::string childStructure = buildHierarchyString(childNode, directChildrenMap);
-                childStructures.push_back(childStructure);
+                combinedPaths += "|";
             }
-
-            // Join the child structures with '+' and add as second component
-            std::string combinedStructure;
-            for (size_t i = 0; i < childStructures.size(); ++i)
-            {
-                if (i > 0)
-                    combinedStructure += "+";
-                combinedStructure += childStructures[i];
-            }
-
-            interestName.append(combinedStructure);
+            combinedPaths += path;
         }
-
+        interestName.append(combinedPaths);
         interestNames.push_back(interestName);
     }
-}
-
-// Helper function to build the hierarchy string
-std::string AggTree::buildHierarchyString(const string &node, const std::map<string, std::vector<string>> &childrenMap)
-{
-    auto it = childrenMap.find(node);
-    if (it == childrenMap.end() || it->second.empty())
-    {
-        return node; // No children
-    }
-
-    std::string result = node;
-
-    // Only add brackets if there are children
-    result += "(";
-
-    bool firstChild = true;
-    for (const auto &child : it->second)
-    {
-        if (!firstChild)
-        {
-            result += "+"; // Separate siblings with '+'
-        }
-        result += buildHierarchyString(child, childrenMap); // Recursively process children
-        firstChild = false;
-    }
-
-    result += ")";
-
-    return result;
 }
 
 std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName) const
@@ -221,46 +172,16 @@ std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName)
 //     // Generate interest names for each path
 //     tree.generateInterestNames();
 //     cout << "Generated Interest Names:" << endl;
-//     cout << "Generated Interest Names:" << endl;
 //     for (const auto &interestName : tree.interestNames)
 //     {
 //         // Decode the URI to display the original characters
 //         string decodedUri = interestName.toUri();
-
-//         // Decode common URL-encoded characters
 //         size_t pos = 0;
-
-//         // Decode pipe character
 //         while ((pos = decodedUri.find("%7C", pos)) != string::npos)
 //         {
 //             decodedUri.replace(pos, 3, "|");
 //             pos += 1;
 //         }
-
-//         // Decode left parenthesis
-//         pos = 0;
-//         while ((pos = decodedUri.find("%28", pos)) != string::npos)
-//         {
-//             decodedUri.replace(pos, 3, "(");
-//             pos += 1;
-//         }
-
-//         // Decode right parenthesis
-//         pos = 0;
-//         while ((pos = decodedUri.find("%29", pos)) != string::npos)
-//         {
-//             decodedUri.replace(pos, 3, ")");
-//             pos += 1;
-//         }
-
-//         // Decode plus sign
-//         pos = 0;
-//         while ((pos = decodedUri.find("%2B", pos)) != string::npos)
-//         {
-//             decodedUri.replace(pos, 3, "+");
-//             pos += 1;
-//         }
-
 //         cout << decodedUri << endl;
 //     }
 
