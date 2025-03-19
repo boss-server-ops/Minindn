@@ -204,38 +204,20 @@ namespace ndn::chunks
         {
             interestName.append("init");
 
-            sendOneInitialInterest(interestName);
+            Interest interest(interestName);
+            interest.setCanBePrefix(false);
+            interest.setMustBeFresh(true);
+
+            // Use the first Face to send initial interest packets
+            getFace(0).expressInterest(interest, [this](const Interest &, const Data &data)
+                                       {
+                    spdlog::info("Successfully received data: {}", data.getName().toUri());
+                    initOnData(data); }, [this](const Interest &, const lp::Nack &nack)
+                                       { spdlog::warn("Received Nack for interest: {}", nack.getInterest().getName().toUri()); }, [this](const Interest &interest)
+                                       { spdlog::error("Interest timed out: {}", interest.getName().toUri()); });
+
             spdlog::info("Sent interest: {}", interestName.toUri());
         }
-    }
-
-    void
-    SplitInterestsAdaptive::sendOneInitialInterest(const Name &interestName)
-    {
-        if (isStopping())
-            return;
-
-        Interest interest(interestName);
-        interest.setCanBePrefix(false);
-        interest.setMustBeFresh(true);
-        interest.setInterestLifetime(time::seconds(10));
-
-        getFace(0).expressInterest(interest,
-
-                                   [this](const Interest &, const Data &data)
-                                   {
-                spdlog::info("Successfully received data: {}", data.getName().toUri());
-                initOnData(data); },
-
-                                   [this](const Interest &, const lp::Nack &nack)
-                                   { spdlog::warn("Received Nack for interest: {}", nack.getInterest().getName().toUri()); },
-
-                                   [this, interestName](const Interest &interest)
-                                   { 
-                spdlog::error("Interest timed out: {}", interest.getName().toUri());
-                
-
-                    sendOneInitialInterest(interestName); });
     }
 
     void
