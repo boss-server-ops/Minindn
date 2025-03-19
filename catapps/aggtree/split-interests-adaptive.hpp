@@ -156,12 +156,10 @@ namespace ndn::chunks
         sendInterest(Name &interestName, size_t faceIndex);
 
         /**
-         * @brief Send the initial Interest
+         * TODO: add comment
          */
-        void
-        sendInitialInterest();
-        void
-        sendOneInitialInterest(const Name &interestName);
+        void sendInitialInterest();
+
         /**
          * @brief Distribute Interest sending across available Faces
          * @param interestName the name of the Interest to be sent

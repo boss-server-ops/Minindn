@@ -1,5 +1,5 @@
-#ifndef IMAgg_SPLITTER_HPP
-#define IMAgg_SPLITTER_HPP
+#ifndef IMAgg_CONSUMER_HPP
+#define IMAgg_CONSUMER_HPP
 
 #include "../pipeline/discover-version.hpp"
 #include "split-interests.hpp"
@@ -75,4 +75,4 @@ namespace ndn::chunks
 
 } // namespace ndn::chunks
 
-#endif // IMAgg_SPLITTER_HPP
+#endif // IMAgg_CONSUMER_HPP
