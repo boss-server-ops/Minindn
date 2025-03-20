@@ -115,7 +115,7 @@ if __name__ == '__main__':
     consumer = Application(node_con0)
     consumer.start(consumer_path, 'consumer.log')  
 
-    # sleep(300)
+    sleep(300)
 
     MiniNDNCLI(ndn.net)
 

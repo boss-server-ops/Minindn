@@ -6,6 +6,7 @@
 #include <ndn-cxx/face.hpp>
 #include <ndn-cxx/security/key-chain.hpp>
 #include <spdlog/spdlog.h>
+#include <ndn-cxx/util/scheduler.hpp>
 
 #include "../pipeline/pipeliner.hpp"
 
@@ -119,6 +120,12 @@ namespace ndn::chunks
 
         void segmentationChunk(uint64_t chunkNumber, const Interest &interest);
 
+        /**
+         * @brief Respond to the interest with the requested content.
+         * @param interest The interest to respond to
+         */
+        void respondToInterest(const Interest &interest);
+
     private:
         Name m_prefix;
         Name m_initialPrefix;
@@ -142,6 +149,9 @@ namespace ndn::chunks
         size_t m_numFaces = 1;
         Request *m_request = nullptr;
         ndn::Name m_chunkedPrefix;
+
+        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler; ///< one scheduler per Face
+        std::unordered_map<std::string, scheduler::ScopedEventId> m_respondEvents;
 
     public:
         spdlog::logger *logger;

@@ -70,6 +70,7 @@ namespace ndn::chunks
   void
   PipelineInterests::onFailure(const std::string &reason)
   {
+    spdlog::error("PipelineInterests::onFailure(): {}", reason);
     if (m_isStopping)
       return;
 

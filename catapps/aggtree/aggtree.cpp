@@ -1,5 +1,4 @@
 #include "aggtree.hpp"
-#include <stack>
 
 // Read topology file and parse
 void AggTree::readTopology(const string &filename)
@@ -90,94 +89,99 @@ void AggTree::getTreeTopology(const string &filename, const string &root)
     generateInterestNames();
 }
 
-// aggtree.cpp（关键修改部分）
+// Generate interest names for each path and store in member variable
+
 void AggTree::generateInterestNames()
 {
     interestNames.clear();
 
-    // 第一步：构建节点到子路径的映射
-    std::map<std::string, std::vector<std::vector<std::string>>> nodeSubpaths;
-    for (const auto &path : paths)
+    // Process each first-level component (direct children of the root)
+    for (const string &firstLevelNode : topology["con0"].children)
     {
-        if (path.size() < 2)
-            continue;
-        std::string firstNode = path[1];
-        std::vector<std::string> subpath(path.begin() + 1, path.end());
-        nodeSubpaths[firstNode].push_back(subpath);
-    }
+        Name interestName;
+        interestName.append(firstLevelNode); // First component is the node name itself
 
-    // 第二步：处理每个第一层子节点
-    for (const auto &child : topology[rootName].children)
-    {
-        // 构建节点关系树
-        std::map<std::string, std::vector<std::string>> nodeChildren;
-        for (const auto &subpath : nodeSubpaths[child])
+        // Create a map of each node to its direct children
+        std::map<string, std::vector<string>> directChildrenMap;
+
+        // Fill the map with node relationships from our paths
+        for (const auto &path : paths)
         {
-            for (size_t i = 0; i < subpath.size() - 1; ++i)
+            if (path.size() > 1 && path[1] == firstLevelNode)
             {
-                std::string current = subpath[i];
-                std::string next = subpath[i + 1];
-                auto &children = nodeChildren[current];
-                if (std::find(children.begin(), children.end(), next) == children.end())
+                // Process each parent-child relationship in the path
+                for (size_t i = 1; i < path.size() - 1; ++i)
                 {
-                    children.push_back(next);
+                    directChildrenMap[path[i]].push_back(path[i + 1]);
                 }
             }
         }
 
-        // 第三步：生成结构化字符串（无递归函数）
-        Name interestName;
-        interestName.append(child);
-
-        if (!nodeChildren[child].empty())
+        // Remove duplicate children
+        for (auto &entry : directChildrenMap)
         {
-            std::string structure;
-            std::stack<std::pair<std::string, int>> nodeStack; // <节点名, 子节点索引>
-            nodeStack.push({child, 0});
+            std::sort(entry.second.begin(), entry.second.end());
+            entry.second.erase(std::unique(entry.second.begin(), entry.second.end()), entry.second.end());
+        }
 
-            while (!nodeStack.empty())
+        // Check if this node has any children
+        auto it = directChildrenMap.find(firstLevelNode);
+        if (it != directChildrenMap.end() && !it->second.empty())
+        {
+            // Build structure strings for each direct child
+            std::vector<std::string> childStructures;
+            for (const auto &childNode : it->second)
             {
-                auto [currentNode, childIdx] = nodeStack.top();
-                nodeStack.pop();
-
-                // 添加节点开括号
-                if (childIdx == 0)
-                {
-                    structure += "(";
-                }
-
-                // 处理所有子节点
-                const auto &children = nodeChildren[currentNode];
-                for (; childIdx < children.size(); ++childIdx)
-                {
-                    const auto &childNode = children[childIdx];
-                    structure += childNode;
-
-                    // 如果子节点有后代，准备处理嵌套
-                    if (nodeChildren.count(childNode))
-                    {
-                        nodeStack.push({currentNode, childIdx + 1}); // 保存当前进度
-                        nodeStack.push({childNode, 0});              // 处理子节点
-                        break;
-                    }
-
-                    // 添加分隔符或闭括号
-                    if (childIdx != children.size() - 1)
-                    {
-                        structure += "+";
-                    }
-                    else
-                    {
-                        structure += ")";
-                    }
-                }
+                std::string childStructure = buildHierarchyString(childNode, directChildrenMap);
+                childStructures.push_back(childStructure);
             }
-            interestName.append(structure);
+
+            // Join the child structures with '+' and add as second component
+            std::string combinedStructure;
+            for (size_t i = 0; i < childStructures.size(); ++i)
+            {
+                if (i > 0)
+                    combinedStructure += "+";
+                combinedStructure += childStructures[i];
+            }
+
+            interestName.append(combinedStructure);
         }
 
         interestNames.push_back(interestName);
     }
 }
+
+// Helper function to build the hierarchy string
+std::string AggTree::buildHierarchyString(const string &node, const std::map<string, std::vector<string>> &childrenMap)
+{
+    auto it = childrenMap.find(node);
+    if (it == childrenMap.end() || it->second.empty())
+    {
+        return node; // No children
+    }
+
+    std::string result = node;
+
+    // Only add brackets if there are children
+    result += "(";
+
+    bool firstChild = true;
+    for (const auto &child : it->second)
+    {
+        if (!firstChild)
+        {
+            result += "+"; // Separate siblings with '+'
+        }
+        result += buildHierarchyString(child, childrenMap); // Recursively process children
+        firstChild = false;
+    }
+
+    result += ")";
+
+    return result;
+}
+
 std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName) const
 {
     auto it = topology.find(nodeName);
@@ -193,7 +197,7 @@ std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName)
 //     AggTree tree;
 
 //     // Get tree topology
-//     tree.getTreeTopology("../../topologies/Customtest.conf", "con0");
+//     tree.getTreeTopology("../../topologies/Linetest.conf", "con0");
 
 //     // Output direct children of con0
 //     cout << "Direct children of con0: ";
@@ -217,16 +221,46 @@ std::vector<std::string> AggTree::getDirectChildren(const std::string &nodeName)
 //     // Generate interest names for each path
 //     tree.generateInterestNames();
 //     cout << "Generated Interest Names:" << endl;
+//     cout << "Generated Interest Names:" << endl;
 //     for (const auto &interestName : tree.interestNames)
 //     {
 //         // Decode the URI to display the original characters
 //         string decodedUri = interestName.toUri();
+
+//         // Decode common URL-encoded characters
 //         size_t pos = 0;
+
+//         // Decode pipe character
 //         while ((pos = decodedUri.find("%7C", pos)) != string::npos)
 //         {
 //             decodedUri.replace(pos, 3, "|");
 //             pos += 1;
 //         }
+
+//         // Decode left parenthesis
+//         pos = 0;
+//         while ((pos = decodedUri.find("%28", pos)) != string::npos)
+//         {
+//             decodedUri.replace(pos, 3, "(");
+//             pos += 1;
+//         }
+
+//         // Decode right parenthesis
+//         pos = 0;
+//         while ((pos = decodedUri.find("%29", pos)) != string::npos)
+//         {
+//             decodedUri.replace(pos, 3, ")");
+//             pos += 1;
+//         }
+
+//         // Decode plus sign
+//         pos = 0;
+//         while ((pos = decodedUri.find("%2B", pos)) != string::npos)
+//         {
+//             decodedUri.replace(pos, 3, "+");
+//             pos += 1;
+//         }
+
 //         cout << decodedUri << endl;
 //     }
 

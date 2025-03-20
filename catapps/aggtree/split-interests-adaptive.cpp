@@ -8,6 +8,7 @@
 #include <iomanip>
 #include <iostream>
 #include <fstream>
+#include <filesystem>
 
 namespace ndn::chunks
 {
@@ -188,13 +189,19 @@ namespace ndn::chunks
             logFile.close();
             m_timeStamp = now;
         }
-        if (m_recordEvent)
+        if (!isStopping() && !allSplitReceived())
         {
-            m_recordEvent.cancel();
+            if (m_recordEvent)
+            {
+                m_recordEvent.cancel();
+            }
+            m_recordEvent = m_schedulers[0]->schedule(time::milliseconds(0), [this]
+                                                      { recordThroughput(); });
         }
-        // Use the first Face's scheduler to handle throughput recording
-        m_recordEvent = m_schedulers[0]->schedule(time::milliseconds(0), [this]
-                                                  { recordThroughput(); });
+        else
+        {
+            spdlog::info("Recording throughput stopped as all splits are received or pipeline is stopping");
+        }
     }
 
     void
@@ -288,6 +295,7 @@ namespace ndn::chunks
             // Distribute interests across available Faces
             for (size_t i = 0; i < m_aggTree.interestNames.size(); ++i)
             {
+                std::cerr << "aggtree interest name size" << m_aggTree.interestNames.size() << std::endl;
                 size_t faceIndex = i % getFaceCount(); // Simple distribution across Faces
                 Name &interestName = m_aggTree.interestNames[i];
 

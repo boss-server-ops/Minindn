@@ -15,7 +15,7 @@ namespace ndn::chunks
 {
     Aggregator::Aggregator(const Name &prefix, Face &face, KeyChain &keyChain,
                            const Options &opts, uint64_t chunkNumber, uint64_t totalChunkNumber)
-        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber)
+        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_scheduler(m_face.getIoContext())
     {
         spdlog::debug("Aggregator::Aggregator()");
 
@@ -110,6 +110,18 @@ namespace ndn::chunks
             sendInitialInterest(interest);
             return;
         }
+        respondToInterest(interest);
+    }
+
+    void Aggregator::storeOriginalInterest(const Interest &interest)
+    {
+        m_originalInterest = interest;
+        m_hasOriginalInterest = true;
+        spdlog::debug("Stored original interest: {}", interest.getName().toUri());
+    }
+
+    void Aggregator::respondToInterest(const Interest &interest)
+    {
         const Name &name = interest.getName();
         uint64_t chunkNo = std::stoi(name[-2].toUri());
         if (m_flowController->isChunkProcessed(chunkNo))
@@ -183,19 +195,21 @@ namespace ndn::chunks
                 if (m_options.isVerbose)
                 {
                     std::cerr << "Interest cannot be satisfied, sending Nack\n";
-                    spdlog::info("Interest cannot be satisfied, sending Nack");
                 }
+                spdlog::info("Interest cannot be satisfied, sending Nack");
                 m_face.put(lp::Nack(interest));
             }
         }
+        else
+        {
+            if (m_respondEvents[name.toUri()])
+            {
+                m_respondEvents[name.toUri()].cancel();
+            }
+            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(0), [this, interest]
+                                                                 { respondToInterest(interest); });
+        }
     }
-    void Aggregator::storeOriginalInterest(const Interest &interest)
-    {
-        m_originalInterest = interest;
-        m_hasOriginalInterest = true;
-        spdlog::debug("Stored original interest: {}", interest.getName().toUri());
-    }
-
     void Aggregator::respondToOriginalInterest()
     {
         if (!m_hasOriginalInterest)
@@ -588,12 +602,11 @@ namespace ndn::chunks
     Aggregator::segmentationChunk(uint64_t chunkNumber, const Interest &interest)
     {
         std::istream *is = m_flowController->getProcessedChunkAsStream(chunkNumber);
-        if (is != nullptr)
+        if (is != nullptr && m_options.isVerbose)
         {
-            // 保存原始读取位置
+
             std::streampos origPos = is->tellg();
 
-            // 读取全部内容到字符串
             std::string content;
             char buffer[4096];
             while (is->read(buffer, sizeof(buffer)) || is->gcount())
@@ -601,12 +614,10 @@ namespace ndn::chunks
                 content.append(buffer, is->gcount());
             }
 
-            // 打印原始内容（限制输出前512字节）
             std::cerr << "\n===== Chunk " << chunkNumber << " Content ====="
                       << "\nSize: " << content.size() << " bytes\n"
                       << "First 512 bytes (HEX):\n";
 
-            // 打印HEX格式
             const size_t printLimit = 512;
             for (size_t i = 0; i < std::min(content.size(), printLimit); ++i)
             {
@@ -624,12 +635,11 @@ namespace ndn::chunks
                 }
                 else
                 {
-                    std::cerr << '.'; // 用点号表示不可打印字符
+                    std::cerr << '.';
                 }
             }
             std::cerr << "\n==============================\n";
 
-            // 重置流状态和位置
             is->clear();
             is->seekg(origPos);
         }
