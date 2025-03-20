@@ -38,6 +38,7 @@ public:
     vector<vector<string>> paths;
     vector<Name> interestNames;
     size_t rootChildCount = 0;
+    string rootName = "con0";
 };
 
 #endif // IMAGG_AGGTREE_HPP

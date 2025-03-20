@@ -45,7 +45,13 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::doCancel()
   {
+    spdlog::debug("PipelineInterestsAdaptive::doCancel() in chunumber {}", m_prefix.get(-1).toUri());
     m_checkRtoEvent.cancel();
+
+    for (auto &entry : m_segmentInfo)
+    {
+      entry.second.interestHdl.cancel();
+    }
     m_segmentInfo.clear();
   }
 
@@ -152,7 +158,7 @@ namespace ndn::chunks
     spdlog::debug("Interest name: {}", interest.getName().toUri());
     segInfo.timeSent = time::steady_clock::now();
     segInfo.rto = m_rttEstimator.getEstimatedRto();
-
+    spdlog::debug("In flight increment from sendInterest,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
     m_chunker->safe_InFlightIncrement();
     m_nInFlight++;
     m_nSent++;
@@ -173,11 +179,24 @@ namespace ndn::chunks
   PipelineInterestsAdaptive::schedulePackets()
   {
     spdlog::debug("Pipeline schedule packets");
-    spdlog::debug("In flight: {}", m_chunker->safe_getInFlight());
+    spdlog::debug("In flight: {} from {},real m_ninflight {} in chunknumber {}", m_chunker->safe_getInFlight(), m_prefix.get(0).toUri(), m_nInFlight, m_prefix.get(-1).toUri());
+    spdlog::debug("Window size: {} from {}", m_chunker->safe_getWindowSize(), m_prefix.get(0).toUri());
     BOOST_ASSERT(m_chunker->safe_getInFlight() >= 0);
     BOOST_ASSERT(m_nInFlight >= 0);
     auto availableWindowSize = static_cast<int64_t>(m_chunker->safe_getWindowSize()) - m_chunker->safe_getInFlight();
     spdlog::debug("Available window size: {}", availableWindowSize);
+    // TODO: this logic is actually wrong, we should consider more about how to fit the available window size
+    /*
+    When the chunk isn't needed, the retransmission would definitely be sent because before all the data are received.
+    There must be the enough window size to send the retransmission.
+    */
+    // if (!m_retxQueue.empty() && availableWindowSize <= 0)
+    // {
+    //   spdlog::debug("schedule because retxqueue is not empty");
+    //   uint64_t retxSegNo = m_retxQueue.front();
+    //   m_retxQueue.pop();
+    //   sendInterest(retxSegNo, true);
+    // }
     while (availableWindowSize > 0)
     {
       // // if it is the first time to send the interest, we need to record the starttime
@@ -304,6 +323,8 @@ namespace ndn::chunks
     // because it was already decremented when the segment timed out
     if (segInfo.state != SegmentState::InRetxQueue)
     {
+
+      spdlog::debug("In flight decrement from handleData,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
       m_chunker->safe_InFlightDecrement();
       m_nInFlight--;
     }
@@ -467,12 +488,25 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::enqueueForRetransmission(uint64_t segNo)
   {
+    spdlog::debug("in flight is {} from {} and m_ninflight is {} in chunumber {} with segNo {}", m_chunker->safe_getInFlight(), m_prefix.get(0).toUri(), m_nInFlight, m_prefix.get(-1).toUri(), segNo);
     BOOST_ASSERT(m_chunker->safe_getInFlight() > 0);
     BOOST_ASSERT(m_nInFlight > 0);
+    spdlog::debug("inflight decrement from enqueueForRetransmission,m_infight is {},real m_ninflight is{} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
     m_chunker->safe_InFlightDecrement();
     m_nInFlight--;
     m_retxQueue.push(segNo);
     m_segmentInfo.at(segNo).state = SegmentState::InRetxQueue;
+    if (m_nInFlight == 0)
+    {
+      uint64_t retxSegNo = m_retxQueue.front();
+      m_retxQueue.pop();
+      if (m_segmentInfo.count(retxSegNo) == 0)
+      {
+        return;
+      }
+      // the segment is still in the map, that means it needs to be retransmitted
+      sendInterest(retxSegNo, true);
+    }
   }
 
   void
@@ -488,6 +522,7 @@ namespace ndn::chunks
     if (!m_hasFinalBlockId)
     {
       m_segmentInfo.erase(segNo);
+      spdlog::debug("inflight decrement from handleFail,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
       m_chunker->safe_InFlightDecrement();
       m_nInFlight--;
 
@@ -508,12 +543,14 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::cancelInFlightSegmentsGreaterThan(uint64_t segNo)
   {
+    spdlog::debug("cancelInFlightSegmentsGreaterThan {}", segNo);
     for (auto it = m_segmentInfo.begin(); it != m_segmentInfo.end();)
     {
       // cancel fetching all segments that follow
       if (it->first > segNo)
       {
         it = m_segmentInfo.erase(it);
+        spdlog::debug("inflight decrement from cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
         m_chunker->safe_InFlightDecrement();
         m_nInFlight--;
       }
