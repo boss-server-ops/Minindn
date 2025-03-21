@@ -546,9 +546,15 @@ namespace ndn::chunks
       if (it->first > segNo)
       {
         spdlog::warn("Inflight decrement from cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
+        if (it->second.state != SegmentState::InRetxQueue)
+        {
+          m_chunker->safe_InFlightDecrement();
+          m_nInFlight--;
+        }
         it = m_segmentInfo.erase(it);
-        m_chunker->safe_InFlightDecrement();
-        m_nInFlight--;
+
+        // m_chunker->safe_InFlightDecrement();
+        // m_nInFlight--;
       }
       else
       {
