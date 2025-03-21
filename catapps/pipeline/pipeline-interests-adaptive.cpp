@@ -126,8 +126,6 @@ namespace ndn::chunks
         if (m_options.maxRetriesOnTimeoutOrNack != DataFetcher::MAX_RETRIES_INFINITE &&
             m_retxCount[segNo] > m_options.maxRetriesOnTimeoutOrNack)
         {
-          spdlog::debug("Failed to retrieve segment #{}: Reached the maximum number of retries ({})",
-                        segNo, m_options.maxRetriesOnTimeoutOrNack);
           return handleFail(segNo, "Reached the maximum number of retries (" +
                                        std::to_string(m_options.maxRetriesOnTimeoutOrNack) +
                                        ") while retrieving segment #" + std::to_string(segNo));
@@ -321,7 +319,7 @@ namespace ndn::chunks
     if (segInfo.state != SegmentState::InRetxQueue)
     {
 
-      spdlog::warn("Inflight decrement from handleData,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
+      spdlog::debug("In flight decrement from handleData,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
       m_chunker->safe_InFlightDecrement();
       m_nInFlight--;
     }
@@ -488,7 +486,7 @@ namespace ndn::chunks
     spdlog::debug("in flight is {} from {} and m_ninflight is {} in chunumber {} with segNo {}", m_chunker->safe_getInFlight(), m_prefix.get(0).toUri(), m_nInFlight, m_prefix.get(-1).toUri(), segNo);
     BOOST_ASSERT(m_chunker->safe_getInFlight() > 0);
     BOOST_ASSERT(m_nInFlight > 0);
-    spdlog::warn("Inflight decrement from enqueueForRetransmission,m_infight is {},real m_ninflight is{} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
+    spdlog::debug("inflight decrement from enqueueForRetransmission,m_infight is {},real m_ninflight is{} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
     m_chunker->safe_InFlightDecrement();
     m_nInFlight--;
     m_retxQueue.push(segNo);
@@ -499,7 +497,6 @@ namespace ndn::chunks
       m_retxQueue.pop();
       if (m_segmentInfo.count(retxSegNo) == 0)
       {
-        spdlog::error("Segment #{} is not in the map", retxSegNo);
         return;
       }
       // the segment is still in the map, that means it needs to be retransmitted
@@ -521,7 +518,7 @@ namespace ndn::chunks
     if (!m_hasFinalBlockId)
     {
       m_segmentInfo.erase(segNo);
-      spdlog::warn("Inflight decrement from handleFail,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
+      spdlog::debug("inflight decrement from handleFail,m_infight is {},real m_inflight is {} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
       m_chunker->safe_InFlightDecrement();
       m_nInFlight--;
 
@@ -548,13 +545,14 @@ namespace ndn::chunks
       // cancel fetching all segments that follow
       if (it->first > segNo)
       {
-        it = m_segmentInfo.erase(it);
         spdlog::warn("Inflight decrement from cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
+        it = m_segmentInfo.erase(it);
         m_chunker->safe_InFlightDecrement();
         m_nInFlight--;
       }
       else
       {
+        spdlog::warn("cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
         ++it;
       }
     }

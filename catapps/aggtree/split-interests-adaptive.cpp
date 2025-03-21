@@ -8,7 +8,6 @@
 #include <iomanip>
 #include <iostream>
 #include <fstream>
-#include <filesystem>
 
 namespace ndn::chunks
 {

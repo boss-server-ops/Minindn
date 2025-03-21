@@ -130,7 +130,7 @@ namespace ndn::chunks
                     }
                     chunkNumber = std::stoull(chunkNumberStr);
 
-                    spdlog::debug("Processing data from node {}, chunk {}", nodeName, chunkNumber);
+                    spdlog::info("Processing data from node {}, chunk {}", nodeName, chunkNumber);
 
                     m_flowController->addChunk(nodeName, chunkNumber, data);
                 }

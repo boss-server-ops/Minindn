@@ -100,6 +100,7 @@ namespace ndn::chunks
     void
     Aggregator::processSegmentInterest(const Interest &interest)
     {
+        spdlog::info("Received interest: {}", interest.getName().toUri());
         // Parse child node names from the interest
         static bool isFirst = true;
         if (isFirst)
@@ -202,11 +203,12 @@ namespace ndn::chunks
         }
         else
         {
+            spdlog::warn("Chunk {} not processed yet ischunkprocessed is {}", chunkNo, m_flowController->isChunkProcessed(chunkNo));
             if (m_respondEvents[name.toUri()])
             {
                 m_respondEvents[name.toUri()].cancel();
             }
-            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(0), [this, interest]
+            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(100), [this, interest]
                                                                  { respondToInterest(interest); });
         }
     }

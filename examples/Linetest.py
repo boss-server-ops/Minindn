@@ -30,11 +30,9 @@ if __name__ == '__main__':
 
     node_con0 = ndn.net.get('con0')
     node_agg0 = ndn.net.get('agg0')
-    node_agg1 = ndn.net.get('agg1')
     node_pro0 = ndn.net.get('pro0')
     node_pro1 = ndn.net.get('pro1')
-    node_pro2 = ndn.net.get('pro2')
-    node_pro3 = ndn.net.get('pro3')
+
     # 获取consumer和producer的绝对路径
     consumer_path = os.path.abspath('./catapps/consumer')
     producer_path = os.path.abspath('./putapps/producer')
@@ -55,32 +53,15 @@ if __name__ == '__main__':
     sleep(10)
 
 
-    info('Starting Producer on node pro2\n')
-    producer = Application(node_pro2)
-    producer.start(producer_path + ' --prefix /pro2' ,'producer.log')  
-    # sleep(200)
-    # sleep(30)
-    sleep(10)
-
-    info('Starting Producer on node pro3\n')
-    producer = Application(node_pro3)
-    producer.start(producer_path + ' --prefix /pro3' ,'producer.log')  
-    # sleep(200)
-    # sleep(30)
-    sleep(10)
 
     # 在节点agg0上启动producer程序
     info('Starting Aggregator on node agg0\n')
     aggregator = Application(node_agg0)
     aggregator.start(aggregator_path+' --prefix /agg0' , 'aggregator.log')
-    sleep(10)
+    sleep(5)
 
 
-    # 在节点agg1上启动producer程序
-    info('Starting Aggregator on node agg1\n')
-    aggregator = Application(node_agg1)
-    aggregator.start(aggregator_path+' --prefix /agg1' , 'aggregator.log')
-    sleep(10)
+
 
 
     prefix = "/pro0"
@@ -92,21 +73,13 @@ if __name__ == '__main__':
     sleep(2)
 
 
-    prefix = "/pro2"
-    node_pro2.cmd('nlsrc advertise {}'.format(prefix))
-    sleep(2)
 
-    prefix = "/pro3"
-    node_pro3.cmd('nlsrc advertise {}'.format(prefix))
-    sleep(2)
 
     prefix = "/agg0"
     node_agg0.cmd('nlsrc advertise {}'.format(prefix))
     sleep(2)
 
-    prefix = "/agg1"
-    node_agg1.cmd('nlsrc advertise {}'.format(prefix))
-    sleep(2)
+
 
     # node_con0.cmd('tcpdump -i con0-eth0 -w ../packets/con0-eth0.pcap &')
     

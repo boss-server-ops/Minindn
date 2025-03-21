@@ -128,26 +128,26 @@ namespace ndn::chunks
             spdlog::debug("All nodes have provided chunk {}", chunkNumber);
 
             // If this is the next chunk in order, process it immediately
-            if (chunkNumber == m_lastProcessedChunk + 1)
+            // if (chunkNumber == m_lastProcessedChunk + 1)
+            // {
+            spdlog::debug("Processing chunk {} immediately", chunkNumber);
+            auto averagedChunk = averageChunks(chunkNumber);
+
+            // Store the processed chunk instead of writing to output
+            storeProcessedChunk(chunkNumber, averagedChunk);
+
+            // Update the last processed chunk number
+            m_lastProcessedChunk = chunkNumber;
+
+            // Remove this chunk from all node buffers
+            for (auto &[name, buffer] : m_nodeBuffers)
             {
-                spdlog::debug("Processing chunk {} immediately", chunkNumber);
-                auto averagedChunk = averageChunks(chunkNumber);
-
-                // Store the processed chunk instead of writing to output
-                storeProcessedChunk(chunkNumber, averagedChunk);
-
-                // Update the last processed chunk number
-                m_lastProcessedChunk = chunkNumber;
-
-                // Remove this chunk from all node buffers
-                for (auto &[name, buffer] : m_nodeBuffers)
-                {
-                    buffer.erase(chunkNumber);
-                }
-
-                // Remove from completion count
-                m_chunkCompletionCount.erase(chunkNumber);
+                buffer.erase(chunkNumber);
             }
+
+            // Remove from completion count
+            m_chunkCompletionCount.erase(chunkNumber);
+            // }
         }
     }
 
