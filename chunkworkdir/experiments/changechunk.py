@@ -33,7 +33,7 @@ def update_config_files(chunk_size_bytes, total_size_bytes):
     total_chunks = (total_size_bytes + chunk_size_bytes - 1) // chunk_size_bytes  # 向上取整
     
     # 更新proconfig.ini
-    pro_config_path = '/home/dd/mini-ndn/chunkworkdir/experiments/proconfig.ini'
+    pro_config_path = './proconfig.ini'
     pro_config = configparser.ConfigParser(allow_no_value=True)
     pro_config.read(pro_config_path)
     
@@ -45,7 +45,7 @@ def update_config_files(chunk_size_bytes, total_size_bytes):
         pro_config.write(f)
     
     # 更新conconfig.ini
-    con_config_path = '/home/dd/mini-ndn/chunkworkdir/experiments/conconfig.ini'
+    con_config_path = './conconfig.ini'
     con_config = configparser.ConfigParser(allow_no_value=True)
     con_config.read(con_config_path)
     
@@ -62,7 +62,7 @@ def update_config_files(chunk_size_bytes, total_size_bytes):
 
 def generate_hello_txt(size_bytes):
     """生成指定大小的hello.txt文件"""
-    hello_path = '/home/dd/mini-ndn/chunkworkdir/experiments/hello.txt'
+    hello_path = './hello.txt'
     
     # 创建目录（如果不存在）
     os.makedirs(os.path.dirname(hello_path), exist_ok=True)
@@ -79,6 +79,23 @@ def generate_hello_txt(size_bytes):
     
     print(f"已生成文件：{hello_path}（大小：{size_bytes}字节）")
 
+def update_aggregatorcat_config(chunk_size_bytes, total_chunks):
+    """更新aggregatorcat.ini文件"""
+    aggregatorcat_config_path = './aggregatorcat.ini'
+    aggregatorcat_config = configparser.ConfigParser(allow_no_value=True)
+    aggregatorcat_config.read(aggregatorcat_config_path)
+    
+    # 更新chunk-size和totalchunksnumber
+    aggregatorcat_config['General']['chunk-size'] = str(chunk_size_bytes)
+    aggregatorcat_config['General']['totalchunksnumber'] = str(total_chunks)
+    
+    # 写入修改后的aggregatorcat.ini
+    with open(aggregatorcat_config_path, 'w') as f:
+        aggregatorcat_config.write(f)
+    
+    print(f"已更新文件：{aggregatorcat_config_path}")
+
+# 修改main函数，调用新的更新函数
 def main():
     if len(sys.argv) != 3:
         print("用法: python3 changechunk.py <chunk大小> <总文件大小>")
@@ -97,6 +114,9 @@ def main():
     
     # 更新配置文件
     total_chunks = update_config_files(chunk_size_bytes, total_size_bytes)
+    
+    # 更新aggregatorcat.ini
+    update_aggregatorcat_config(chunk_size_bytes, total_chunks)
     
     # 生成hello.txt
     generate_hello_txt(total_size_bytes)

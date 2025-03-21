@@ -115,6 +115,11 @@ namespace ndn::chunks
          * @return The highest chunk number received from that node
          */
         uint64_t getHighestChunkForNode(const std::string &nodeName) const;
+        /**
+         * @brief Remove a processed chunk from the buffer
+         * @param chunkNumber Chunk number to remove
+         */
+        void removeProcessedChunk(uint64_t chunkNumber);
 
     private:
         /**

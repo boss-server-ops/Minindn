@@ -31,14 +31,14 @@ if __name__ == '__main__':
     for pro in producers:
         info(f'Starting Producer {pro.name}\n')
         Application(pro).start(f'{producer_path} --prefix /{pro.name}', f'{pro.name}.log')
-        sleep(10)
+        sleep(5)
     
     # 启动聚合器
     agg_path = os.path.abspath('./aggapps/aggregator')
     for agg in aggregators:
         info(f'Starting Aggregator {agg.name}\n')
         Application(agg).start(f'{agg_path} --prefix /{agg.name}', f'{agg.name}.log')
-        sleep(10)
+        sleep(5)
     
     # 通告路由
     for node in producers + aggregators:

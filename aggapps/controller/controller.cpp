@@ -215,6 +215,16 @@ namespace ndn::chunks
         return result;
     }
 
+    void FlowController::removeProcessedChunk(uint64_t chunkNumber)
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        auto it = m_processedChunks.find(chunkNumber);
+        if (it != m_processedChunks.end())
+        {
+            m_processedChunks.erase(it);
+            spdlog::debug("Removed processed chunk {} from buffer", chunkNumber);
+        }
+    }
     void FlowController::clearStreamCache()
     {
         std::lock_guard<std::mutex> lock(m_mutex);

@@ -208,7 +208,7 @@ namespace ndn::chunks
             {
                 m_respondEvents[name.toUri()].cancel();
             }
-            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(100), [this, interest]
+            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(0), [this, interest]
                                                                  { respondToInterest(interest); });
         }
     }
