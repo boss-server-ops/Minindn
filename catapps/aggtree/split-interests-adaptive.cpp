@@ -130,44 +130,56 @@ namespace ndn::chunks
             std::string filename;
             if (topoFile.is_open())
             {
+                bool foundLinks = false;
                 while (std::getline(topoFile, line))
                 {
-                    if (line.find("con0:pro0") != std::string::npos)
+                    // Skip comments and empty lines
+                    if (line.empty() || line[0] == '#')
+                        continue;
+
+                    // Check if we are in the [links] section
+                    if (line == "[links]")
+                    {
+                        foundLinks = true;
+                        continue;
+                    }
+
+                    // Parse the first valid line under [links]
+                    if (foundLinks)
                     {
                         std::istringstream iss(line);
-                        std::string token;
-                        std::vector<std::string> params;
-                        while (iss >> token)
-                        {
-                            params.push_back(token);
-                        }
-                        if (params.size() >= 5)
-                        {
-                            std::string bw = params[1].substr(params[1].find('=') + 1);
-                            std::string delay = params[2].substr(params[2].find('=') + 1);
-                            std::string max_queue_size = params[3].substr(params[3].find('=') + 1);
-                            std::string loss = params[4].substr(params[4].find('=') + 1);
+                        std::string connection, bw, delay, max_queue_size, loss;
 
-                            // Read split-size from proconfig.ini file
-                            std::ifstream proconfigFile("../../chunkworkdir/experiments/conconfig.ini");
-                            std::string splitSize;
-                            if (proconfigFile.is_open())
+                        // Parse the line into tokens
+                        iss >> connection >> bw >> delay >> max_queue_size >> loss;
+
+                        // Extract parameters
+                        bw = bw.substr(bw.find('=') + 1);
+                        delay = delay.substr(delay.find('=') + 1);
+                        max_queue_size = max_queue_size.substr(max_queue_size.find('=') + 1);
+                        loss = loss.substr(loss.find('=') + 1);
+
+                        // Read split-size from proconfig.ini file
+                        std::ifstream proconfigFile("../../chunkworkdir/experiments/conconfig.ini");
+                        std::string splitSize;
+                        if (proconfigFile.is_open())
+                        {
+                            std::string configLine;
+                            while (std::getline(proconfigFile, configLine))
                             {
-                                std::string configLine;
-                                while (std::getline(proconfigFile, configLine))
+                                if (configLine.find("split-size") != std::string::npos)
                                 {
-                                    if (configLine.find("split-size") != std::string::npos)
-                                    {
-                                        splitSize = configLine.substr(configLine.find('=') + 1);
-                                        break;
-                                    }
+                                    splitSize = configLine.substr(configLine.find('=') + 1);
+                                    break;
                                 }
-                                proconfigFile.close();
                             }
-
-                            filename = "throughput_bw" + bw + "_delay" + delay + "_queue" + max_queue_size + "_loss" + loss + "_splitsize" + splitSize + ".txt";
+                            proconfigFile.close();
                         }
-                        break;
+
+                        // Generate the filename dynamically based on the parameters
+                        filename = "throughput_bw" + bw + "_delay" + delay +
+                                   "_queue" + max_queue_size + "_loss" + loss + "_splitsize" + splitSize + ".txt";
+                        break; // Stop after processing the first valid line
                     }
                 }
                 topoFile.close();
@@ -202,7 +214,6 @@ namespace ndn::chunks
             spdlog::info("Recording throughput stopped as all splits are received or pipeline is stopping");
         }
     }
-
     void
     SplitInterestsAdaptive::sendInitialInterest()
     {
