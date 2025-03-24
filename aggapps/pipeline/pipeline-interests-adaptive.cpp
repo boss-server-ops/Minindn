@@ -47,11 +47,6 @@ namespace ndn::chunks
   {
     spdlog::debug("PipelineInterestsAdaptive::doCancel() in chunumber {}", m_prefix.get(-1).toUri());
     m_checkRtoEvent.cancel();
-
-    for (auto &entry : m_segmentInfo)
-    {
-      entry.second.interestHdl.cancel();
-    }
     m_segmentInfo.clear();
   }
 
@@ -512,6 +507,7 @@ namespace ndn::chunks
   void
   PipelineInterestsAdaptive::handleFail(uint64_t segNo, const std::string &reason)
   {
+    spdlog::error("Failed to retrieve segment #{}: {}", segNo, reason);
     if (isStopping())
       return;
 
@@ -549,13 +545,20 @@ namespace ndn::chunks
       // cancel fetching all segments that follow
       if (it->first > segNo)
       {
+        spdlog::warn("Inflight decrement from cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
+        if (it->second.state != SegmentState::InRetxQueue)
+        {
+          m_chunker->safe_InFlightDecrement();
+          m_nInFlight--;
+        }
         it = m_segmentInfo.erase(it);
-        spdlog::debug("inflight decrement from cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
-        m_chunker->safe_InFlightDecrement();
-        m_nInFlight--;
+
+        // m_chunker->safe_InFlightDecrement();
+        // m_nInFlight--;
       }
       else
       {
+        spdlog::warn("cancelInFlightSegmentsGreaterThan,m_infight is {},real m_inflight is {} in chunknumber {} and segNo is {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri(), it->first);
         ++it;
       }
     }

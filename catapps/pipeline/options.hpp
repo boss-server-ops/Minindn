@@ -20,6 +20,7 @@ namespace ndn::chunks
     bool mustBeFresh = false; ///< false means the data can come from cache
     bool isQuiet = false;
     bool isVerbose = false;
+    std::string pipelineType = "aimd";
 
     // Fixed pipeline options
     size_t maxPipelineSize = 1;

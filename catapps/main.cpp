@@ -2,6 +2,7 @@
 #include "aggtree/split-interests-adaptive.hpp"
 #include "pipeline/discover-version.hpp"
 #include "pipeline/pipeline-interests-aimd.hpp"
+#include "pipeline/pipeline-interests-cubic.hpp"
 #include "pipeline/statistics-collector.hpp"
 #include "../core/version.hpp"
 
@@ -64,6 +65,9 @@ namespace ndn::chunks
            << "    aimd-step                  Additive increase step\n"
            << "    aimd-beta                  Multiplicative decrease factor\n"
            << "    reset-cwnd-to-init         Reset the window to the initial value after a congestion event (true/false)\n"
+           << "  [CubicPipeline]\n"
+           << "    cubic-beta                 Cubic multiplicative decrease factor\n"
+           << "    enable-fast-conv           Use cubic fast convergence (true/false)\n"
            << "\n"
            << desc;
     }
@@ -91,6 +95,7 @@ namespace ndn::chunks
             opts.interestLifetime = time::milliseconds(tree.get<time::milliseconds::rep>("General.lifetime", opts.interestLifetime.count()));
             opts.maxRetriesOnTimeoutOrNack = tree.get<int>("General.retries", opts.maxRetriesOnTimeoutOrNack);
             pipelineType = tree.get<std::string>("General.pipeline-type", pipelineType);
+            opts.pipelineType = pipelineType;
             nameConv = tree.get<std::string>("General.naming-convention", "");
             opts.isQuiet = tree.get<bool>("General.quiet", opts.isQuiet);
             opts.isVerbose = tree.get<bool>("General.verbose", opts.isVerbose);
@@ -119,6 +124,9 @@ namespace ndn::chunks
             opts.aiStep = tree.get<double>("AIMDPipeline.aimd-step", opts.aiStep);
             opts.mdCoef = tree.get<double>("AIMDPipeline.aimd-beta", opts.mdCoef);
             opts.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", opts.resetCwndToInit);
+
+            opts.cubicBeta = tree.get<double>("CubicPipeline.cubic-beta", opts.cubicBeta);
+            opts.enableFastConv = tree.get<bool>("CubicPipeline.enable-fast-conv", opts.enableFastConv);
 
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
             opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
@@ -245,7 +253,7 @@ namespace ndn::chunks
             }
 
             auto discover = std::make_unique<DiscoverVersion>(*faces[0], Name(prefix), options);
-            std::unique_ptr<PipelineInterestsAimd> pipeline;
+            std::unique_ptr<PipelineInterests> pipeline;
             std::unique_ptr<StatisticsCollector> statsCollector;
             std::unique_ptr<RttEstimatorWithStats> rttEstimator;
             std::ofstream statsFileCwnd;
@@ -265,9 +273,17 @@ namespace ndn::chunks
             }
             rttEstimator = std::make_unique<RttEstimatorWithStats>(std::move(rttEstOptions));
 
-            pipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
+            std::unique_ptr<PipelineInterestsAdaptive> adaptivePipeline;
+            if (pipelineType == "aimd")
+                adaptivePipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
+            else if (pipelineType == "cubic")
+                adaptivePipeline = std::make_unique<PipelineInterestsCubic>(*faces[0], *rttEstimator, options);
+            else
+            {
+                std::cerr << "ERROR: '" << pipelineType << "' is not a valid pipeline type\n";
+                return 2;
+            }
 
-            // 创建Face引用的vector
             std::vector<std::reference_wrapper<Face>> faceRefs;
             for (size_t i = 0; i < faces.size(); i++)
             {
@@ -299,8 +315,9 @@ namespace ndn::chunks
                         return 4;
                     }
                 }
-                statsCollector = std::make_unique<StatisticsCollector>(*pipeline, statsFileCwnd, statsFileRtt);
+                statsCollector = std::make_unique<StatisticsCollector>(*adaptivePipeline, statsFileCwnd, statsFileRtt);
             }
+            pipeline = std::move(adaptivePipeline);
             spdlog::debug("Starting splitter");
             Splitter splitter(security::getAcceptAllValidator());
             BOOST_ASSERT(discover != nullptr);
@@ -310,7 +327,6 @@ namespace ndn::chunks
             splitter.run(std::move(discover), std::move(split));
             spdlog::info("starting processing events");
 
-            // 为除了主Face之外的所有Face创建处理线程
             std::vector<std::thread> faceThreads;
             for (size_t i = 1; i < faces.size(); i++)
             {

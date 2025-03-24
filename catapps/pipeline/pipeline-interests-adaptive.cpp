@@ -277,6 +277,7 @@ namespace ndn::chunks
     BOOST_ASSERT(data.getName().equals(interest.getName()));
 
     auto &received = *(m_chunker->getReceived());
+    std::lock_guard<std::mutex> lock(m_chunker->getSplitinterest()->getMutex());
     received += data.getContent().value_size();
     spdlog::debug("Received {} bytes, total received: {}", data.getContent().value_size(), received);
     if (!m_hasFinalBlockId && data.getFinalBlock())

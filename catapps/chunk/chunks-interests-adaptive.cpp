@@ -2,6 +2,7 @@
 #include "../pipeline/data-fetcher.hpp"
 #include "../pipeline/pipeline-interests-adaptive.hpp"
 #include "../pipeline/pipeline-interests-aimd.hpp"
+#include "../pipeline/pipeline-interests-cubic.hpp"
 #include "../pipeline/pipeliner.hpp"
 #include "../pipeline/discover-version.hpp"
 
@@ -18,7 +19,7 @@ namespace ndn::chunks
     ChunksInterestsAdaptive::ChunksInterestsAdaptive(Face &face,
                                                      RttEstimatorWithStats &rttEstimator,
                                                      const Options &opts)
-        : ChunksInterests(face, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext())
+        : ChunksInterests(face, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext()), m_lastDecrease(time::steady_clock::now())
     {
     }
 
@@ -73,7 +74,16 @@ namespace ndn::chunks
         namewithchuno = Name(m_prefix).append(std::to_string(chuNo));
         spdlog::debug("Name :{}", namewithchuno.toUri());
         auto discover = std::make_unique<DiscoverVersion>(m_face, namewithchuno, m_options);
-        auto pipeline = std::make_unique<PipelineInterestsAimd>(m_face, m_rttEstimator, m_options);
+        std::unique_ptr<PipelineInterestsAdaptive> pipeline;
+
+        if (m_options.pipelineType == "aimd")
+        {
+            pipeline = std::make_unique<PipelineInterestsAimd>(m_face, m_rttEstimator, m_options);
+        }
+        else
+        {
+            pipeline = std::make_unique<PipelineInterestsCubic>(m_face, m_rttEstimator, m_options);
+        }
         pipeline->setChunker(this);
         chuInfo.pipeliner->run(std::move(discover), std::move(pipeline));
         chuInfo.timeSent = time::steady_clock::now();
@@ -256,6 +266,31 @@ namespace ndn::chunks
     double ChunksInterestsAdaptive::safe_getSsthresh()
     {
         return m_ssthresh;
+    }
+
+    void ChunksInterestsAdaptive::safe_setWmax(double value)
+    {
+        m_wmax = value;
+    }
+    double ChunksInterestsAdaptive::safe_getWmax()
+    {
+        return m_wmax;
+    }
+    void ChunksInterestsAdaptive::safe_setLastWmax(double value)
+    {
+        m_lastWmax = value;
+    }
+    double ChunksInterestsAdaptive::safe_getLastWmax()
+    {
+        return m_lastWmax;
+    }
+    void ChunksInterestsAdaptive::safe_setLastDecrease(time::steady_clock::time_point value)
+    {
+        m_lastDecrease = value;
+    }
+    time::steady_clock::time_point ChunksInterestsAdaptive::safe_getLastDecrease()
+    {
+        return m_lastDecrease;
     }
 
 } // namespace ndn::chunks

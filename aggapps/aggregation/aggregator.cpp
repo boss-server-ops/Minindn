@@ -197,7 +197,7 @@ namespace ndn::chunks
                 {
                     std::cerr << "Interest cannot be satisfied, sending Nack\n";
                 }
-                spdlog::info("Interest cannot be satisfied, sending Nack");
+                spdlog::warn("Interest cannot be satisfied, sending Nack");
                 m_face.put(lp::Nack(interest));
             }
         }

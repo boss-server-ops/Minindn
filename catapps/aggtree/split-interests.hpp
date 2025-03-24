@@ -70,6 +70,11 @@ namespace ndn::chunks
          */
         size_t *getReceived();
 
+        std::mutex &getMutex()
+        {
+            return m_receivedMutex;
+        }
+
         /**
          * @brief other classes can call this method to increment the number of received splits
          */
