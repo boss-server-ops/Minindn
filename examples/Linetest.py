@@ -31,7 +31,7 @@ if __name__ == '__main__':
     node_con0 = ndn.net.get('con0')
     node_agg0 = ndn.net.get('agg0')
     node_pro0 = ndn.net.get('pro0')
-    node_pro1 = ndn.net.get('pro1')
+    # node_pro1 = ndn.net.get('pro1')
 
     # 获取consumer和producer的绝对路径
     consumer_path = os.path.abspath('./catapps/consumer')
@@ -45,12 +45,12 @@ if __name__ == '__main__':
     # sleep(30)
     sleep(10)
 
-    info('Starting Producer on node pro1\n')
-    producer = Application(node_pro1)
-    producer.start(producer_path + ' --prefix /pro1' ,'producer.log')  
-    # sleep(200)
-    # sleep(30)
-    sleep(10)
+    # info('Starting Producer on node pro1\n')
+    # producer = Application(node_pro1)
+    # producer.start(producer_path + ' --prefix /pro1' ,'producer.log')  
+    # # sleep(200)
+    # # sleep(30)
+    # sleep(10)
 
 
 
@@ -68,9 +68,9 @@ if __name__ == '__main__':
     node_pro0.cmd('nlsrc advertise {}'.format(prefix))
     sleep(2)
 
-    prefix = "/pro1"
-    node_pro1.cmd('nlsrc advertise {}'.format(prefix))
-    sleep(2)
+    # prefix = "/pro1"
+    # node_pro1.cmd('nlsrc advertise {}'.format(prefix))
+    # sleep(2)
 
 
 

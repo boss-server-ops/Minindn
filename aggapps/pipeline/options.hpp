@@ -13,6 +13,7 @@ namespace ndn::chunks
   // TODO: original input is from cin but my sys needs to be changed into file
   struct Options
   {
+    std::string pipelineType = "aimd"; ///< pipeline type
     // Common options
     time::milliseconds interestLifetime = DEFAULT_INTEREST_LIFETIME;
     int maxRetriesOnTimeoutOrNack = 15;

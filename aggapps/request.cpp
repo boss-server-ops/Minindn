@@ -259,6 +259,7 @@ namespace ndn::chunks
                 tree.get<time::milliseconds::rep>("General.lifetime", options.interestLifetime.count()));
             options.maxRetriesOnTimeoutOrNack = tree.get<int>("General.retries", options.maxRetriesOnTimeoutOrNack);
             pipelineType = tree.get<std::string>("General.pipeline-type", "aimd");
+            options.pipelineType = pipelineType;
             nameConv = tree.get<std::string>("General.naming-convention", "");
             options.isQuiet = tree.get<bool>("General.quiet", options.isQuiet);
             options.isVerbose = tree.get<bool>("General.verbose", options.isVerbose);
@@ -291,6 +292,9 @@ namespace ndn::chunks
             options.aiStep = tree.get<double>("AIMDPipeline.aimd-step", options.aiStep);
             options.mdCoef = tree.get<double>("AIMDPipeline.aimd-beta", options.mdCoef);
             options.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", options.resetCwndToInit);
+
+            options.cubicBeta = tree.get<double>("CubicPipeline.cubic-beta", options.cubicBeta);
+            options.enableFastConv = tree.get<bool>("CubicPipeline.enable-fast-conv", options.enableFastConv);
 
             options.recordingCycle = time::milliseconds(
                 tree.get<time::milliseconds::rep>("General.recordingcycle", options.recordingCycle.count()));
@@ -338,8 +342,12 @@ namespace ndn::chunks
         // Create discover version component
         discover = std::make_unique<DiscoverVersion>(*faces[0], Name(prefix), options);
 
+        std::unique_ptr<PipelineInterestsAdaptive> adaptivePipeline;
         // Create pipeline
-        pipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
+        if (pipelineType == "aimd")
+            adaptivePipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
+        else if (pipelineType == "cubic")
+            adaptivePipeline = std::make_unique<PipelineInterestsCubic>(*faces[0], *rttEstimator, options);
 
         // Create face references vector
         std::vector<std::reference_wrapper<Face>> faceRefs;
@@ -373,9 +381,9 @@ namespace ndn::chunks
                 }
             }
 
-            statsCollector = std::make_unique<StatisticsCollector>(*pipeline, statsFileCwnd, statsFileRtt);
+            statsCollector = std::make_unique<StatisticsCollector>(*adaptivePipeline, statsFileCwnd, statsFileRtt);
         }
-
+        pipeline = std::move(adaptivePipeline);
         // Create and initialize splitter
         splitter = std::make_unique<Splitter>(security::getAcceptAllValidator());
         splitter->run(std::move(discover), std::move(split));

@@ -129,7 +129,12 @@ namespace ndn::chunks
          * @brief A safe way to get the number of in-flight packets.
          */
         int64_t safe_getInFlight();
-
+        void safe_setWmax(double value);
+        double safe_getWmax();
+        void safe_setLastWmax(double value);
+        double safe_getLastWmax();
+        void safe_setLastDecrease(time::steady_clock::time_point value);
+        time::steady_clock::time_point safe_getLastDecrease();
         void
         schedulePackets();
 
@@ -254,10 +259,12 @@ namespace ndn::chunks
         uint64_t m_failedChuNo = 0;
         std::string m_failureReason;
 
-        // std::unordered_map<uint64_t, DiscoverVersion *> m_ChuDiscover;
-        // std::unordered_map<uint64_t, PipelineInterestsAimd *> m_ChuPipeline;
-        PipelineInterestsAimd *m_pipeline;
         DiscoverVersion *m_discover;
+
+        // These are for cubic
+        double m_wmax = 0.0;                           ///< window size before last window decrease
+        double m_lastWmax = 0.0;                       ///< last wmax
+        time::steady_clock::time_point m_lastDecrease; ///< time of last window decrease
     };
 
 } // namespace ndn::chunks

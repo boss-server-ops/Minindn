@@ -5,6 +5,7 @@
 #include "aggregation/split-interests-adaptive.hpp"
 #include "pipeline/discover-version.hpp"
 #include "pipeline/pipeline-interests-aimd.hpp"
+#include "pipeline/pipeline-interests-cubic.hpp"
 #include "pipeline/statistics-collector.hpp"
 #include "aggregation/aggregator.hpp"
 
@@ -67,7 +68,7 @@ namespace ndn::chunks
         // Components
         std::vector<std::unique_ptr<Face>> faces;
         std::unique_ptr<DiscoverVersion> discover;
-        std::unique_ptr<PipelineInterestsAimd> pipeline;
+        std::unique_ptr<PipelineInterests> pipeline;
         std::unique_ptr<StatisticsCollector> statsCollector;
         std::unique_ptr<RttEstimatorWithStats> rttEstimator;
         std::unique_ptr<SplitInterests> split;
