@@ -131,6 +131,7 @@ namespace ndn::chunks
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
             opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
             logLevel = tree.get<std::string>("General.log-level", "debug");
+            opts.segmentNumber = tree.get<int>("General.segnum", opts.segmentNumber);
         }
         catch (const pt::ptree_error &e)
         {

@@ -48,6 +48,7 @@ namespace ndn::chunks
     // Recording cycle
     time::milliseconds recordingCycle = time::milliseconds(1000);
     std::string topoFile = "../../topologies/Customtest.conf";
+    int segmentNumber = 256;
   };
 
 } // namespace ndn::chunks

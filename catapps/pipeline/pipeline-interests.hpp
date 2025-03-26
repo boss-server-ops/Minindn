@@ -99,6 +99,13 @@ namespace ndn::chunks
     getNextSegmentNo();
 
     /**
+     * @return current segment number to retrieve
+     * @return m_nextSegmentNo
+     */
+    uint64_t
+    getCurrentSegmentNo();
+
+    /**
      * @brief subclasses must call this method to notify successful retrieval of a segment
      */
     void

@@ -59,6 +59,12 @@ namespace ndn::chunks
     return m_nextSegmentNo++;
   }
 
+  uint64_t
+  PipelineInterests::getCurrentSegmentNo()
+  {
+    return m_nextSegmentNo;
+  }
+
   void
   PipelineInterests::onData(const Data &data)
   {
