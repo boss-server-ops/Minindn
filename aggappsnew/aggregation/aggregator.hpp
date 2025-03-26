@@ -138,10 +138,10 @@ namespace ndn::chunks
         bool isini = false;
         std::vector<std::string> m_childNodes;       // Legacy storage for child nodes
         std::vector<ChildNodeInfo> m_childNodeInfos; // Structured information about child nodes
-        std::vector<std::unique_ptr<Face>> m_childFaces;
         std::vector<std::unique_ptr<Pipeliner>> m_pipeliners;
         std::vector<std::thread> m_pipelinerThreads;
         std::map<std::string, bool> m_initializedNodes;               // Tracks which nodes have responded
+        std::map<uint64_t, bool> m_isprocessing;                      ///< Tracks which nodes are processing
         std::map<std::string, std::string> m_initializationResponses; // Stores responses from each node
         Interest m_originalInterest;                                  // Keeps the original interest for response
         bool m_hasOriginalInterest = false;
@@ -149,6 +149,8 @@ namespace ndn::chunks
         size_t m_numFaces = 1;
         Request *m_request = nullptr;
         ndn::Name m_chunkedPrefix;
+        std::map<std::string, ChunksInterestsAdaptive> m_childChunker;                 //< every child node is assigned a chunker
+        std::map<std::string, std::unique_ptr<RttEstimatorWithStats>> m_rttEstimators; //< every child node is assigned an RTT estimator
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler; ///< one scheduler per Face
         std::unordered_map<std::string, scheduler::ScopedEventId> m_respondEvents;

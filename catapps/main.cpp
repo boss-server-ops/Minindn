@@ -131,7 +131,6 @@ namespace ndn::chunks
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
             opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
             logLevel = tree.get<std::string>("General.log-level", "debug");
-            opts.segmentNumber = tree.get<int>("General.segnum", opts.segmentNumber);
         }
         catch (const pt::ptree_error &e)
         {
@@ -154,7 +153,7 @@ namespace ndn::chunks
         Options options;
         std::string prefix, nameConv, pipelineType("aimd"), logLevel, logFile;
         std::string cwndPath, rttPath;
-        int numFaces = 2; // 默认使用2个face
+        int numFaces = 2;
         auto rttEstOptions = std::make_shared<util::RttEstimator::Options>();
         rttEstOptions->k = 8; // increased from the ndn-cxx default of 4
 

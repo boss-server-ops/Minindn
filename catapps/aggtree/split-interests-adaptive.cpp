@@ -24,6 +24,7 @@ namespace ndn::chunks
         for (size_t i = 0; i < getFaceCount(); ++i)
         {
             m_schedulers.push_back(std::make_unique<Scheduler>(getFace(i).getIoContext()));
+            m_faceIdRttEstimator.push_back(RttEstimatorWithStats(rttEstimator));
         }
     }
 
@@ -78,7 +79,7 @@ namespace ndn::chunks
 
             auto discover = std::make_unique<DiscoverVersion>(getFace(faceIndex), interestName, m_options);
             std::unique_ptr<ChunksInterests> chunks =
-                std::make_unique<ChunksInterestsAdaptive>(getFace(faceIndex), m_rttEstimator, m_options);
+                std::make_unique<ChunksInterestsAdaptive>(getFace(faceIndex), m_faceIdRttEstimator[faceIndex], m_options);
             chunks->setSplitinterest(this);
             splitInfo.consumer->run(std::move(discover), std::move(chunks));
         }

@@ -4,12 +4,15 @@
 #include <ndn-cxx/util/segmenter.hpp>
 #include <ndn-cxx/security/validator-null.hpp>
 #include <iostream>
-#include "../request.hpp"
+
 #include "../pipeline/discover-version.hpp"
 #include "../pipeline/statistics-collector.hpp"
+#include "../controller/controller.hpp"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 namespace ndn::chunks
 {
@@ -57,7 +60,6 @@ namespace ndn::chunks
     Aggregator::run()
     {
         spdlog::debug("Aggregator::run()");
-        m_request = new Request("../experiments/aggregatorcat.ini", this);
         m_face.processEvents();
         spdlog::debug("Aggregator::run() end");
     }
@@ -96,6 +98,10 @@ namespace ndn::chunks
         m_flowController = FlowController::createFromChildNodeInfos(
             "../experiments/aggregatorcat.ini",
             m_childNodeInfos); // Pass node names instead of ChildNodeInfo objects
+        for (const auto &info : m_childNodeInfos)
+        {
+            m_childChunker.emplace(info.name, ChunksInterestsAdaptive());
+        }
     }
     void
     Aggregator::processSegmentInterest(const Interest &interest)
@@ -111,7 +117,17 @@ namespace ndn::chunks
             sendInitialInterest(interest);
             return;
         }
-        respondToInterest(interest);
+        const Name &name = interest.getName();
+        uint64_t chunkNo = std::stoi(name[-2].toUri());
+        if (m_isprocessing[chunkNo])
+        {
+            spdlog::warn("Chunk {} is already being processed", chunkNo);
+            respondToInterest(interest);
+        }
+        else
+        {
+            m_isprocessing[chunkNo] = true;
+        }
     }
 
     void Aggregator::storeOriginalInterest(const Interest &interest)
@@ -284,15 +300,6 @@ namespace ndn::chunks
             {
                 spdlog::info("All child nodes have been successfully initialized, responding to original interest");
                 respondToOriginalInterest();
-
-                // Initialize and start (blocking until completion)
-                std::thread requestThread([this]()
-                                          {
-                    if (m_request->initialize())
-                    {
-                        m_request->start();
-                    } });
-                requestThread.detach();
             }
             else
             {
