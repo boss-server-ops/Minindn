@@ -198,7 +198,7 @@ namespace ndn::chunks
         double m_cwnd;     ///< current congestion window size (in splits)
         double m_ssthresh; ///< current slow start threshold
         RttEstimatorWithStats &m_rttEstimator;
-        std::vector<RttEstimatorWithStats> m_faceIdRttEstimator;
+
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::vector<std::unique_ptr<Scheduler>> m_schedulers; ///< one scheduler per Face
         scheduler::ScopedEventId m_recordEvent;
 

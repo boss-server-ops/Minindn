@@ -153,7 +153,7 @@ namespace ndn::chunks
         Options options;
         std::string prefix, nameConv, pipelineType("aimd"), logLevel, logFile;
         std::string cwndPath, rttPath;
-        int numFaces = 2;
+        int numFaces = 2; // 默认使用2个face
         auto rttEstOptions = std::make_shared<util::RttEstimator::Options>();
         rttEstOptions->k = 8; // increased from the ndn-cxx default of 4
 

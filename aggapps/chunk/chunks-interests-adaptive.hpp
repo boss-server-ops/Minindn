@@ -54,7 +54,7 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace. After this
          * configuration the method run must be called to start the Chunks.
          */
-        ChunksInterestsAdaptive(Face &face, RttEstimatorWithStats &rttEstimator, const Options &opts);
+        ChunksInterestsAdaptive(Face &face, RttEstimatorWithStats &rttEstimator, const Options &opts, Aggregator *aggregator = nullptr);
 
         ~ChunksInterestsAdaptive() override;
 
@@ -184,7 +184,7 @@ namespace ndn::chunks
          * @param chuNo the chunk # of the to-be-sent Interest
          */
         void
-        sendInterest(uint64_t chuNo);
+        sendInterest();
 
         void
         handleData(const Interest &interest, const Data &data);

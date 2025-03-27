@@ -23,7 +23,7 @@ namespace ndn::chunks
            << "Run an aggregator node to handle and forward child node requests.\n"
            << "Configuration is read from 'aggregatorput.ini' file.\n"
            << "\n"
-           << "Options:\n"
+           << "PutOptions:\n"
            << "  --help, -h                   Print this help message and exit\n"
            << "  --version, -V                Print program version and exit\n"
            << "  --prefix, -p <prefix>        NDN name prefix for the aggregator\n"
@@ -43,7 +43,7 @@ namespace ndn::chunks
     }
 
     static bool
-    readConfigFile(const std::string &filename, Aggregator::Options &opts, std::string &signingStr, std::string &logFile, std::string &logLevel)
+    readConfigFile(const std::string &filename, Aggregator::PutOptions &opts, std::string &signingStr, std::string &logFile, std::string &logLevel)
     {
         pt::ptree tree;
         try
@@ -86,10 +86,10 @@ namespace ndn::chunks
 
         const std::string programName(argv[0]);
 
-        Aggregator::Options opts;
+        Aggregator::PutOptions opts;
         std::string prefix, signingStr, logFile, logLevel;
 
-        po::options_description visibleDesc("Options");
+        po::options_description visibleDesc("PutOptions");
         visibleDesc.add_options()("help,h", "print this help message and exit")("prefix,p", po::value<std::string>(&prefix)->required(), "NDN name prefix for the aggregator");
 
         po::variables_map vm;

@@ -79,7 +79,7 @@ namespace ndn::chunks
     if (hasTimeout)
     {
       recordTimeout(highTimeoutSeg);
-      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      if (!(m_chunker->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {
         schedulePackets();
       }
@@ -248,7 +248,7 @@ namespace ndn::chunks
     }
     if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
     {
-      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      if (!(m_chunker->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {
         m_waitEvent = m_scheduler.schedule(time::milliseconds(0), [this]
                                            { schedulePackets(); });
@@ -383,7 +383,7 @@ namespace ndn::chunks
     }
     else
     {
-      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      if (!(m_chunker->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {
         schedulePackets();
       }
@@ -419,7 +419,7 @@ namespace ndn::chunks
       spdlog::debug("enqueue happened from handleNack");
       enqueueForRetransmission(segNo);
       recordTimeout(segNo);
-      if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+      if (!(m_chunker->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {
         schedulePackets();
       }
@@ -447,7 +447,7 @@ namespace ndn::chunks
     spdlog::debug("enqueue happened from handleLifetimeExpiration");
     enqueueForRetransmission(segNo);
     recordTimeout(segNo);
-    if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
+    if (!(m_chunker->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
     {
       schedulePackets();
     }

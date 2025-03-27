@@ -4,21 +4,26 @@
 #include <ndn-cxx/util/segmenter.hpp>
 #include <ndn-cxx/security/validator-null.hpp>
 #include <iostream>
-#include "../request.hpp"
+
 #include "../pipeline/discover-version.hpp"
 #include "../pipeline/statistics-collector.hpp"
+#include "../chunk/chunks-interests-adaptive.hpp"
+#include "../controller/controller.hpp"
 
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/ini_parser.hpp>
 
 namespace ndn::chunks
 {
     Aggregator::Aggregator(const Name &prefix, Face &face, KeyChain &keyChain,
-                           const Options &opts, uint64_t chunkNumber, uint64_t totalChunkNumber)
-        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_scheduler(m_face.getIoContext())
+                           const PutOptions &opts, uint64_t chunkNumber, uint64_t totalChunkNumber)
+        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_scheduler(m_face.getIoContext()), m_rttEstOptions(std::make_shared<util::RttEstimator::Options>()),
+          m_rttEstimator(m_rttEstOptions)
     {
         spdlog::debug("Aggregator::Aggregator()");
-
+        initializeRttEstimator();
         m_prefix = prefix;
 
         try
@@ -47,21 +52,98 @@ namespace ndn::chunks
             std::cerr << "Registered prefix: " << m_prefix << "\n";
             spdlog::info("Registered prefix: {}", m_prefix.toUri());
         }
+        initializeCatOptions();
     }
     Aggregator::~Aggregator()
     {
         m_flowController->clearStreamCache();
-        delete m_request;
     }
     void
     Aggregator::run()
     {
         spdlog::debug("Aggregator::run()");
-        m_request = new Request("../experiments/aggregatorcat.ini", this);
         m_face.processEvents();
         spdlog::debug("Aggregator::run() end");
     }
 
+    void
+    Aggregator::initializeCatOptions()
+    {
+        try
+        {
+            // Read configuration from INI file
+            boost::property_tree::ptree tree;
+            boost::property_tree::ini_parser::read_ini("../experiments/aggregatorcat.ini", tree);
+
+            // General options
+            m_catoptions.interestLifetime = time::milliseconds(
+                tree.get<time::milliseconds::rep>("General.lifetime", m_catoptions.interestLifetime.count()));
+            m_catoptions.maxRetriesOnTimeoutOrNack = tree.get<int>("General.retries", m_catoptions.maxRetriesOnTimeoutOrNack);
+            m_catoptions.pipelineType = tree.get<std::string>("General.pipeline-type", "aimd");
+            m_catoptions.isQuiet = tree.get<bool>("General.quiet", m_catoptions.isQuiet);
+            m_catoptions.isVerbose = tree.get<bool>("General.verbose", m_catoptions.isVerbose);
+            m_catoptions.TotalChunksNumber = tree.get<size_t>("General.totalchunksnumber", m_catoptions.TotalChunksNumber);
+
+            // Adaptive pipeline options
+            m_catoptions.ignoreCongMarks = tree.get<bool>("AdaptivePipeline.ignore-marks", m_catoptions.ignoreCongMarks);
+            m_catoptions.disableCwa = tree.get<bool>("AdaptivePipeline.disable-cwa", m_catoptions.disableCwa);
+            m_catoptions.initCwnd = tree.get<double>("AdaptivePipeline.init-cwnd", m_catoptions.initCwnd);
+            m_catoptions.initSsthresh = tree.get<double>("AdaptivePipeline.init-ssthresh", m_catoptions.initSsthresh);
+
+            // AIMD pipeline options
+            m_catoptions.aiStep = tree.get<double>("AIMDPipeline.aimd-step", m_catoptions.aiStep);
+            m_catoptions.mdCoef = tree.get<double>("AIMDPipeline.aimd-beta", m_catoptions.mdCoef);
+            m_catoptions.resetCwndToInit = tree.get<bool>("AIMDPipeline.reset-cwnd-to-init", m_catoptions.resetCwndToInit);
+
+            // CUBIC pipeline options
+            m_catoptions.cubicBeta = tree.get<double>("CubicPipeline.cubic-beta", m_catoptions.cubicBeta);
+            m_catoptions.enableFastConv = tree.get<bool>("CubicPipeline.enable-fast-conv", m_catoptions.enableFastConv);
+
+            // Recording options
+            m_catoptions.recordingCycle = time::milliseconds(
+                tree.get<time::milliseconds::rep>("General.recordingcycle", m_catoptions.recordingCycle.count()));
+            m_catoptions.topoFile = tree.get<std::string>("General.topofilepath", m_catoptions.topoFile);
+
+            // Log configuration values if verbose mode is enabled
+            if (m_catoptions.isVerbose)
+            {
+                spdlog::info("Consumer application options loaded successfully");
+                spdlog::info("Pipeline type: {}", m_catoptions.pipelineType);
+                spdlog::info("Interest lifetime: {} ms", m_catoptions.interestLifetime.count());
+                spdlog::info("Initial congestion window: {}", m_catoptions.initCwnd);
+                spdlog::info("AIMD step: {}", m_catoptions.aiStep);
+                spdlog::info("AIMD beta coefficient: {}", m_catoptions.mdCoef);
+            }
+        }
+        catch (const boost::property_tree::ptree_error &e)
+        {
+            spdlog::error("Error reading consumer application options: {}", e.what());
+        }
+    }
+    void
+    Aggregator::initializeRttEstimator()
+    {
+        try
+        {
+
+            m_rttEstOptions->k = 8;
+
+            boost::property_tree::ptree tree;
+            boost::property_tree::ini_parser::read_ini("../experiments/aggregatorcat.ini", tree);
+
+            m_rttEstOptions->alpha = tree.get<double>("AdaptivePipeline.rto-alpha", 0.125);
+            m_rttEstOptions->beta = tree.get<double>("AdaptivePipeline.rto-beta", 0.25);
+            m_rttEstOptions->k = tree.get<int>("AdaptivePipeline.rto-k", m_rttEstOptions->k);
+            m_rttEstOptions->minRto = time::milliseconds(
+                tree.get<time::milliseconds::rep>("AdaptivePipeline.min-rto", 200));
+            m_rttEstOptions->maxRto = time::milliseconds(
+                tree.get<time::milliseconds::rep>("AdaptivePipeline.max-rto", 60000));
+        }
+        catch (const std::exception &e)
+        {
+            spdlog::warn("Error reading RTT parameters from config file: {}", e.what());
+        }
+    }
     void Aggregator::initializeFromInterest(const Interest &interest)
     {
         // Get structured child node information
@@ -96,6 +178,10 @@ namespace ndn::chunks
         m_flowController = FlowController::createFromChildNodeInfos(
             "../experiments/aggregatorcat.ini",
             m_childNodeInfos); // Pass node names instead of ChildNodeInfo objects
+        for (const auto &info : m_childNodeInfos)
+        {
+            m_childChunker.emplace(info.name, std::make_unique<ndn::chunks::ChunksInterestsAdaptive>(m_face, m_rttEstimator, m_catoptions, this));
+        }
     }
     void
     Aggregator::processSegmentInterest(const Interest &interest)
@@ -111,7 +197,64 @@ namespace ndn::chunks
             sendInitialInterest(interest);
             return;
         }
-        respondToInterest(interest);
+        const Name &name = interest.getName();
+        uint64_t chunkNo = std::stoi(name[-2].toUri());
+        if (m_isprocessing[chunkNo])
+        {
+            spdlog::warn("Chunk {} is already being processed", chunkNo);
+            respondToInterest(interest);
+        }
+        else
+        {
+            m_isprocessing[chunkNo] = true;
+
+            // Get child interest names with face assignments
+            auto childInterests = getChildInterestNames();
+
+            // Start processing requests to all child nodes
+            spdlog::info("Starting to process chunk {} by requesting data from {} child nodes",
+                         chunkNo, childInterests.size());
+
+            // For each child node, send an interest for the current chunk
+            for (const auto &[interestName, faceIndex] : childInterests)
+            {
+                // Find the child node name from the interest name (first component)
+                std::string childName = interestName[0].toUri(name::UriFormat::CANONICAL);
+                // Remove component type identifier if present
+                size_t startPos = childName.find_first_of('=');
+                if (startPos != std::string::npos)
+                {
+                    childName = childName.substr(startPos + 1);
+                }
+
+                // Get the chunker for this child node
+                auto chunkerIt = m_childChunker.find(childName);
+                if (chunkerIt != m_childChunker.end())
+                {
+                    // Create a copy of the interest name and append chunk number
+                    Name chunkInterestName = interestName;
+
+                    // Remove any existing segment number if present
+                    if (chunkInterestName.size() > 0 && chunkInterestName[-1].isSegment())
+                    {
+                        chunkInterestName = chunkInterestName.getPrefix(-1);
+                    }
+
+                    // Append the chunk number as a new component
+                    chunkInterestName.append(std::to_string(chunkNo));
+
+                    spdlog::info("Sending interest for chunk {} to child node {}: {}",
+                                 chunkNo, childName, chunkInterestName.toUri());
+
+                    // Use the chunker to fetch data from the child node
+                    chunkerIt->second->run(chunkInterestName);
+                }
+                else
+                {
+                    spdlog::error("No chunker found for child node: {}", childName);
+                }
+            }
+        }
     }
 
     void Aggregator::storeOriginalInterest(const Interest &interest)
@@ -284,15 +427,6 @@ namespace ndn::chunks
             {
                 spdlog::info("All child nodes have been successfully initialized, responding to original interest");
                 respondToOriginalInterest();
-
-                // Initialize and start (blocking until completion)
-                std::thread requestThread([this]()
-                                          {
-                    if (m_request->initialize())
-                    {
-                        m_request->start();
-                    } });
-                requestThread.detach();
             }
             else
             {
