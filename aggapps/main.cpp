@@ -147,28 +147,23 @@ namespace ndn::chunks
 
         try
         {
-            // Create KeyChain
+            // Create Face and KeyChain
+            Face face;
             KeyChain keyChain;
 
             // Create and run the Aggregator
             spdlog::info("Creating aggregator with prefix: {}", prefix);
 
+            // Assuming Aggregator requires these parameters: prefix, face, keychain, options,
+            // chunk number and total chunk number
             uint64_t currentChunkNumber = 0;
-            uint64_t totalChunkNumber = 100;
+            uint64_t totalChunkNumber = 100; // This might need to be configured differently
 
-            // 创建并运行Aggregator实例
-            Aggregator aggregator(Name(prefix), keyChain, opts, currentChunkNumber, totalChunkNumber);
+            Aggregator aggregator(Name(prefix), face, keyChain, opts, currentChunkNumber, totalChunkNumber);
 
-            // 运行Aggregator
+            // Run the aggregator (this will block until completion or error)
             spdlog::info("Starting aggregator event processing");
             aggregator.run();
-
-            // 等待用户输入以停止程序
-            std::cout << "Press Enter to stop the aggregator..." << std::endl;
-            std::cin.get();
-
-            // 停止Aggregator
-            aggregator.stop();
         }
         catch (const std::exception &e)
         {
