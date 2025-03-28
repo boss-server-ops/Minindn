@@ -100,7 +100,8 @@
 			"semaphore": "cpp",
 			"*.ipp": "cpp",
 			"cfenv": "cpp",
-			"stdfloat": "cpp"
+			"stdfloat": "cpp",
+			"future": "cpp"
 		}
 	}
 }

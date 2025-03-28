@@ -17,65 +17,282 @@
 
 namespace ndn::chunks
 {
-    Aggregator::Aggregator(const Name &prefix, Face &face, KeyChain &keyChain,
+    Aggregator::Aggregator(const Name &prefix, KeyChain &keyChain,
                            const PutOptions &opts, uint64_t chunkNumber, uint64_t totalChunkNumber)
-        : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_scheduler(m_face.getIoContext()), m_rttEstOptions(std::make_shared<util::RttEstimator::Options>()),
-          m_rttEstimator(m_rttEstOptions), m_childFace(new Face()), m_childScheduler(m_childFace->getIoContext())
+        : m_prefix(prefix), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber),
+          m_parentFace(std::make_unique<Face>()), m_childFace(std::make_unique<Face>()),
+          m_parentScheduler(m_parentFace->getIoContext()), m_childScheduler(m_childFace->getIoContext()),
+          m_rttEstOptions(std::make_shared<util::RttEstimator::Options>()), m_rttEstimator(m_rttEstOptions)
     {
         spdlog::debug("Aggregator::Aggregator()");
+
         initializeRttEstimator();
-        m_prefix = prefix;
+        initializeCatOptions();
 
-        try
-        {
-            boost::property_tree::ptree tree;
-            boost::property_tree::ini_parser::read_ini("../experiments/aggregatorcat.ini", tree);
-            m_numFaces = tree.get<size_t>("General.num-faces", 2);
-            spdlog::info("Read num-faces = {} from config file", m_numFaces);
-        }
-        catch (const std::exception &e)
-        {
-            spdlog::warn("Error reading config file: {}", e.what());
-            m_numFaces = 2;
-        }
-        // register m_prefix without Interest handler
-        m_face.registerPrefix(m_prefix, nullptr, [this](const Name &prefix, const auto &reason)
-                              {            
-            spdlog::error("ERROR: Failed to register prefix '{}'({})", prefix.toUri(), boost::lexical_cast<std::string>(reason));
-            m_face.shutdown(); });
+        // 注册父节点Face的前缀
+        m_parentFace->registerPrefix(m_prefix, nullptr, [this](const Name &prefix, const auto &reason)
+                                     {
+            spdlog::error("ERROR: Failed to register prefix '{}' on parent face ({})", 
+                         prefix.toUri(), boost::lexical_cast<std::string>(reason));
+            m_parentFace->shutdown(); });
 
-        face.setInterestFilter(m_prefix, [this](const auto &, const auto &interest)
-                               { processSegmentInterest(interest); });
+        // 设置父节点Face的Interest过滤器
+        m_parentFace->setInterestFilter(m_prefix, [this](const auto &, const auto &interest)
+                                        {
+            std::lock_guard<std::mutex> lock(m_interestQueueMutex);
+            m_interestQueue.push(interest);
+            m_interestQueueCV.notify_one(); });
 
         if (!m_options.isQuiet)
         {
-            std::cerr << "Registered prefix: " << m_prefix << "\n";
-            spdlog::info("Registered prefix: {}", m_prefix.toUri());
+            spdlog::info("Registered prefix on parent face: {}", m_prefix.toUri());
         }
-        initializeCatOptions();
     }
+
     Aggregator::~Aggregator()
     {
-        m_isRunning = false;
-        if (m_childFaceThread.joinable())
-        {
-            m_childFaceThread.join();
-        }
+        stop();
         if (m_flowController)
         {
             m_flowController->clearStreamCache();
         }
     }
-    void
-    Aggregator::run()
+
+    void Aggregator::run()
     {
-        spdlog::debug("Aggregator::run()");
-        m_face.processEvents();
-        spdlog::debug("Aggregator::run() end");
+        if (m_isRunning)
+        {
+            return;
+        }
+
+        m_isRunning = true;
+
+        // 启动子节点Face线程
+        m_childThread = std::thread([this]()
+                                    {
+            try {
+                childFaceThread();
+            } catch (const std::exception &e) {
+                spdlog::error("Child face thread error: {}", e.what());
+            } });
+
+        // 启动处理线程
+        m_processingThread = std::thread([this]()
+                                         {
+            try {
+                processInterestQueue();
+                
+            } catch (const std::exception &e) {
+                spdlog::error("Processing thread error: {}", e.what());
+            } });
+
+        m_chunkerThread = std::thread([this]()
+                                      {
+            try {
+                processChunkerQueue();
+                
+            } catch (const std::exception &e) {
+                spdlog::error("Chunker thread error: {}", e.what());
+            } });
+        parentFaceThread();
     }
 
-    void
-    Aggregator::initializeCatOptions()
+    void Aggregator::stop()
+    {
+        if (!m_isRunning)
+        {
+            return;
+        }
+
+        m_isRunning = false;
+
+        // 通知所有等待的线程
+        m_interestQueueCV.notify_all();
+        m_chunkerQueueCV.notify_all();
+
+        // 关闭Face
+        if (m_parentFace)
+        {
+            m_parentFace->shutdown();
+        }
+        if (m_childFace)
+        {
+            m_childFace->shutdown();
+        }
+
+        // 等待线程结束
+        if (m_parentThread.joinable())
+        {
+            m_parentThread.join();
+        }
+        if (m_childThread.joinable())
+        {
+            m_childThread.join();
+        }
+        if (m_processingThread.joinable())
+        {
+            m_processingThread.join();
+        }
+        if (m_chunkerThread.joinable())
+        {
+            m_chunkerThread.join();
+        }
+    }
+
+    void Aggregator::parentFaceThread()
+    {
+        while (m_isRunning)
+        {
+            try
+            {
+                m_parentFace->processEvents();
+            }
+            catch (const std::exception &e)
+            {
+                spdlog::error("Error in parent face thread: {}", e.what());
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+    }
+
+    void Aggregator::childFaceThread()
+    {
+        while (m_isRunning)
+        {
+            m_childFace->processEvents();
+        }
+    }
+
+    void Aggregator::processChunkerQueue()
+    {
+        while (m_isRunning)
+        {
+            try
+            {
+                m_childFace->processEvents();
+
+                // 处理chunker队列
+                std::unique_lock<std::mutex> lock(m_chunkerQueueMutex);
+                if (m_chunkerQueueCV.wait_for(lock, std::chrono::milliseconds(100),
+                                              [this]()
+                                              { return !m_chunkerQueue.empty() || !m_isRunning; }))
+                {
+
+                    while (!m_chunkerQueue.empty())
+                    {
+                        auto [childName, interestName] = m_chunkerQueue.front();
+                        m_chunkerQueue.pop();
+                        lock.unlock();
+
+                        auto chunkerIt = m_childChunker.find(childName);
+                        if (chunkerIt != m_childChunker.end())
+                        {
+                            chunkerIt->second->run(interestName);
+                        }
+
+                        lock.lock();
+                    }
+                }
+            }
+            catch (const std::exception &e)
+            {
+                spdlog::error("Error in child face thread: {}", e.what());
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+    }
+
+    void Aggregator::processInterestQueue()
+    {
+        while (m_isRunning)
+        {
+            Interest interest;
+            {
+                std::unique_lock<std::mutex> lock(m_interestQueueMutex);
+                if (m_interestQueueCV.wait_for(lock, std::chrono::milliseconds(100),
+                                               [this]()
+                                               { return !m_interestQueue.empty() || !m_isRunning; }))
+                {
+
+                    interest = m_interestQueue.front();
+                    m_interestQueue.pop();
+                }
+                else
+                {
+                    continue;
+                }
+            }
+
+            try
+            {
+                processSegmentInterest(interest);
+            }
+            catch (const std::exception &e)
+            {
+                spdlog::error("Error processing interest: {}", e.what());
+            }
+        }
+    }
+
+    void Aggregator::processSegmentInterest(const Interest &interest)
+    {
+        spdlog::info("Received interest: {}", interest.getName().toUri());
+
+        static bool isFirst = true;
+        if (isFirst)
+        {
+            isFirst = false;
+            initializeFromInterest(interest);
+            storeOriginalInterest(interest);
+            sendInitialInterest(interest);
+            return;
+        }
+
+        const Name &name = interest.getName();
+        uint64_t chunkNo = std::stoi(name[-2].toUri());
+
+        std::lock_guard<std::mutex> lock(m_processingMutex);
+        if (m_isprocessing[chunkNo])
+        {
+            spdlog::warn("Chunk {} is already being processed", chunkNo);
+            respondToInterest(interest);
+            return;
+        }
+
+        m_isprocessing[chunkNo] = true;
+
+        // 获取子节点interest名称和face分配
+        auto childInterests = getChildInterestNames();
+
+        spdlog::info("Starting to process chunk {} by requesting data from {} child nodes",
+                     chunkNo, childInterests.size());
+
+        // 将chunker任务添加到队列
+        {
+            std::lock_guard<std::mutex> lock(m_chunkerQueueMutex);
+            for (const auto &[interestName, faceIndex] : childInterests)
+            {
+                std::string childName = interestName[0].toUri(name::UriFormat::CANONICAL);
+                size_t startPos = childName.find_first_of('=');
+                if (startPos != std::string::npos)
+                {
+                    childName = childName.substr(startPos + 1);
+                }
+
+                Name chunkInterestName = interestName;
+                if (chunkInterestName.size() > 0 && chunkInterestName[-1].isSegment())
+                {
+                    chunkInterestName = chunkInterestName.getPrefix(-1);
+                }
+                chunkInterestName.append(std::to_string(chunkNo));
+
+                m_chunkerQueue.push({childName, chunkInterestName});
+            }
+        }
+        m_chunkerQueueCV.notify_one();
+    }
+
+    void Aggregator::initializeCatOptions()
     {
         try
         {
@@ -185,101 +402,12 @@ namespace ndn::chunks
         // Create and initialize flow controller
         m_flowController = FlowController::createFromChildNodeInfos(
             "../experiments/aggregatorcat.ini",
-            m_childNodeInfos);
-
-        m_isRunning = true;
-        m_childFaceThread = std::thread(&Aggregator::runChildFaceThread, this);
-        spdlog::info("Started child face thread for network communication");
-
+            m_childNodeInfos); // Pass node names instead of ChildNodeInfo objects
         for (const auto &info : m_childNodeInfos)
         {
-            m_childChunker.emplace(
-                info.name,
-                std::make_unique<ndn::chunks::ChunksInterestsAdaptive>(
-                    *m_childFace,
-                    m_rttEstimator,
-                    m_catoptions,
-                    this));
-            spdlog::debug("Created chunker for child node {} using child face", info.name);
+            m_childChunker.emplace(info.name, std::make_unique<ndn::chunks::ChunksInterestsAdaptive>(m_face, m_rttEstimator, m_catoptions, this));
         }
     }
-    void
-    Aggregator::processSegmentInterest(const Interest &interest)
-    {
-        spdlog::info("Received interest: {}", interest.getName().toUri());
-        // Parse child node names from the interest
-        static bool isFirst = true;
-        if (isFirst)
-        {
-            isFirst = false;
-            initializeFromInterest(interest);
-            storeOriginalInterest(interest);
-            sendInitialInterest(interest);
-            return;
-        }
-        const Name &name = interest.getName();
-        uint64_t chunkNo = std::stoi(name[-2].toUri());
-        if (m_isprocessing[chunkNo])
-        {
-            spdlog::warn("Chunk {} is already being processed", chunkNo);
-            respondToInterest(interest);
-        }
-        else
-        {
-            m_isprocessing[chunkNo] = true;
-
-            // Get child interest names with face assignments
-            auto childInterests = getChildInterestNames();
-
-            // Start processing requests to all child nodes
-            spdlog::info("Starting to process chunk {} by requesting data from {} child nodes",
-                         chunkNo, childInterests.size());
-
-            // For each child node, send an interest for the current chunk
-            for (const auto &[interestName, faceIndex] : childInterests)
-            {
-                // Find the child node name from the interest name (first component)
-                std::string childName = interestName[0].toUri(name::UriFormat::CANONICAL);
-                // Remove component type identifier if present
-                size_t startPos = childName.find_first_of('=');
-                if (startPos != std::string::npos)
-                {
-                    childName = childName.substr(startPos + 1);
-                }
-
-                // Get the chunker for this child node
-                auto chunkerIt = m_childChunker.find(childName);
-                if (chunkerIt != m_childChunker.end())
-                {
-                    // Create a copy of the interest name and append chunk number
-                    Name chunkInterestName = interestName;
-
-                    // Remove any existing segment number if present
-                    if (chunkInterestName.size() > 0 && chunkInterestName[-1].isSegment())
-                    {
-                        chunkInterestName = chunkInterestName.getPrefix(-1);
-                    }
-
-                    // Append the chunk number as a new component
-                    chunkInterestName.append(std::to_string(chunkNo));
-
-                    spdlog::info("Sending interest for chunk {} to child node {}: {}",
-                                 chunkNo, childName, chunkInterestName.toUri());
-
-                    // Use the chunker to fetch data from the child node
-
-                    m_childScheduler.schedule(time::milliseconds(0),
-                                              [chunkerIt, chunkInterestName]()
-                                              { chunkerIt->second->run(chunkInterestName); });
-                }
-                else
-                {
-                    spdlog::error("No chunker found for child node: {}", childName);
-                }
-            }
-        }
-    }
-
     void Aggregator::storeOriginalInterest(const Interest &interest)
     {
         m_originalInterest = interest;
@@ -292,80 +420,52 @@ namespace ndn::chunks
         const Name &name = interest.getName();
         uint64_t chunkNo = std::stoi(name[-2].toUri());
 
-        bool isProcessed;
+        std::lock_guard<std::mutex> lock(m_storeMutex);
+        if (m_flowController->isChunkProcessed(chunkNo))
         {
-            std::lock_guard<std::mutex> lock(m_flowControllerMutex);
-            isProcessed = m_flowController->isChunkProcessed(chunkNo);
-        }
-
-        if (isProcessed)
-        {
-            spdlog::debug("Producer::processSegmentInterest()");
             if (m_options.isVerbose)
             {
-                std::cerr << "Interest: " << interest << "\n";
                 spdlog::info("Interest: {}", interest.getName().toUri());
             }
 
+            if (m_store[chunkNo].empty())
             {
-                std::lock_guard<std::mutex> lock(m_flowControllerMutex);
-                if (m_store[chunkNo].empty())
-                {
-                    segmentationChunk(chunkNo, interest);
-                }
-                BOOST_ASSERT(!m_store[chunkNo].empty());
+                segmentationChunk(chunkNo, interest);
             }
 
             std::shared_ptr<Data> data;
-
             if (name.size() == m_chunkedPrefix.size() + 1 && name[-1].isSegment())
             {
                 const auto segmentNo = static_cast<size_t>(interest.getName()[-1].toSegment());
-                // specific segment retrieval
+                if (segmentNo < m_store[chunkNo].size())
                 {
-                    std::lock_guard<std::mutex> lock(m_flowControllerMutex);
-                    if (segmentNo < m_store[chunkNo].size())
-                    {
-                        data = m_store[chunkNo][segmentNo];
-                        m_nSentSegments[chunkNo]++;
-                    }
+                    data = m_store[chunkNo][segmentNo];
+                    m_nSentSegments[chunkNo]++;
                 }
             }
-            else
+            else if (interest.matchesData(*m_store[chunkNo][0]))
             {
-                std::lock_guard<std::mutex> lock(m_flowControllerMutex);
-                if (interest.matchesData(*m_store[chunkNo][0]))
-                {
-                    // unspecified version or segment number, return first segment
-                    data = m_store[chunkNo][0];
-                    m_nSentSegments[chunkNo] = 1;
-                }
+                data = m_store[chunkNo][0];
+                m_nSentSegments[chunkNo] = 1;
             }
 
             if (data != nullptr)
             {
                 if (m_options.isVerbose)
                 {
-                    std::cerr << "Data: " << *data << "\n";
-                    spdlog::info("Data: {}", (*data).getName().toUri());
+                    spdlog::info("Data: {}", data->getName().toUri());
                 }
-                m_face.put(*data);
+                m_parentFace->put(*data);
 
-                // check all the segments are sent
                 const Name &dataName = data->getName();
                 if (dataName.size() > m_chunkedPrefix.size() && dataName[-1].isSegment())
                 {
-                    std::lock_guard<std::mutex> lock(m_flowControllerMutex);
                     uint64_t sentSegments = m_nSentSegments[chunkNo];
                     auto it = m_store.find(chunkNo);
-                    if (it != m_store.end())
+                    if (it != m_store.end() && sentSegments == it->second.size())
                     {
-                        size_t totalSegments = it->second.size();
-                        if (sentSegments == totalSegments)
-                        {
-                            m_store.erase(chunkNo);
-                            spdlog::debug("Cleared chunk {} after sending {} segments ", chunkNo, sentSegments);
-                        }
+                        m_store.erase(chunkNo);
+                        spdlog::debug("Cleared chunk {} after sending {} segments", chunkNo, sentSegments);
                     }
                 }
             }
@@ -373,10 +473,9 @@ namespace ndn::chunks
             {
                 if (m_options.isVerbose)
                 {
-                    std::cerr << "Interest cannot be satisfied, sending Nack\n";
+                    spdlog::warn("Interest cannot be satisfied, sending Nack");
                 }
-                spdlog::warn("Interest cannot be satisfied, sending Nack");
-                m_face.put(lp::Nack(interest));
+                m_parentFace->put(lp::Nack(interest));
             }
         }
         else
@@ -386,9 +485,9 @@ namespace ndn::chunks
             {
                 m_respondEvents[name.toUri()].cancel();
             }
-
-            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(20), [this, interest]
-                                                                 { respondToInterest(interest); });
+            m_respondEvents[name.toUri()] = m_parentScheduler.schedule(time::milliseconds(100),
+                                                                       [this, interest]()
+                                                                       { respondToInterest(interest); });
         }
     }
     void Aggregator::respondToOriginalInterest()
@@ -420,7 +519,7 @@ namespace ndn::chunks
             m_keyChain.sign(*responseData);
 
             // Send the data packet back
-            m_face.put(*responseData);
+            m_parentFace->put(*responseData);
 
             spdlog::info("Sent aggregated initialization response for {} child nodes",
                          m_initializationResponses.size());
@@ -429,26 +528,6 @@ namespace ndn::chunks
         {
             spdlog::error("Error responding to original interest: {}", e.what());
         }
-    }
-
-    void Aggregator::runChildFaceThread()
-    {
-        spdlog::info("Starting child face thread");
-
-        try
-        {
-            while (m_isRunning)
-            {
-                m_childFace->processEvents();
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-            }
-        }
-        catch (const std::exception &e)
-        {
-            spdlog::error("Error in child face thread: {}", e.what());
-        }
-
-        spdlog::info("Child face thread terminated");
     }
     void Aggregator::onInitialData(const Interest &interest, const Data &data, const std::string &childName)
     {
@@ -531,7 +610,7 @@ namespace ndn::chunks
                 initialInterest.setMustBeFresh(true);
                 initialInterest.setInterestLifetime(time::seconds(4));
 
-                m_face.expressInterest(
+                m_parentFace->expressInterest(
                     initialInterest,
                     bind(&Aggregator::onInitialData, this, _1, _2, childInfo.name),
                     bind(&Aggregator::onInitialNack, this, _1, _2, childInfo.name),
