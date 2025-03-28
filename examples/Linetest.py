@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
 
 
-    # node_con0.cmd('tcpdump -i con0-eth0 -w ../packets/con0-eth0.pcap &')
+    node_con0.cmd('tcpdump -i con0-eth0 -w ../packets/con0-eth0.pcap &')
     
     # 在节点a上启动consumer程序
     info('Starting Consumer on node con0\n')

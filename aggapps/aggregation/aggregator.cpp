@@ -20,7 +20,7 @@ namespace ndn::chunks
     Aggregator::Aggregator(const Name &prefix, Face &face, KeyChain &keyChain,
                            const PutOptions &opts, uint64_t chunkNumber, uint64_t totalChunkNumber)
         : m_face(face), m_keyChain(keyChain), m_options(opts), m_totalChunkNumber(totalChunkNumber), m_scheduler(m_face.getIoContext()), m_rttEstOptions(std::make_shared<util::RttEstimator::Options>()),
-          m_rttEstimator(m_rttEstOptions)
+          m_rttEstimator(m_rttEstOptions), m_childFace(new Face()), m_childScheduler(m_childFace->getIoContext())
     {
         spdlog::debug("Aggregator::Aggregator()");
         initializeRttEstimator();
@@ -56,7 +56,15 @@ namespace ndn::chunks
     }
     Aggregator::~Aggregator()
     {
-        m_flowController->clearStreamCache();
+        m_isRunning = false;
+        if (m_childFaceThread.joinable())
+        {
+            m_childFaceThread.join();
+        }
+        if (m_flowController)
+        {
+            m_flowController->clearStreamCache();
+        }
     }
     void
     Aggregator::run()
@@ -177,10 +185,22 @@ namespace ndn::chunks
         // Create and initialize flow controller
         m_flowController = FlowController::createFromChildNodeInfos(
             "../experiments/aggregatorcat.ini",
-            m_childNodeInfos); // Pass node names instead of ChildNodeInfo objects
+            m_childNodeInfos);
+
+        m_isRunning = true;
+        m_childFaceThread = std::thread(&Aggregator::runChildFaceThread, this);
+        spdlog::info("Started child face thread for network communication");
+
         for (const auto &info : m_childNodeInfos)
         {
-            m_childChunker.emplace(info.name, std::make_unique<ndn::chunks::ChunksInterestsAdaptive>(m_face, m_rttEstimator, m_catoptions, this));
+            m_childChunker.emplace(
+                info.name,
+                std::make_unique<ndn::chunks::ChunksInterestsAdaptive>(
+                    *m_childFace,
+                    m_rttEstimator,
+                    m_catoptions,
+                    this));
+            spdlog::debug("Created chunker for child node {} using child face", info.name);
         }
     }
     void
@@ -247,7 +267,10 @@ namespace ndn::chunks
                                  chunkNo, childName, chunkInterestName.toUri());
 
                     // Use the chunker to fetch data from the child node
-                    chunkerIt->second->run(chunkInterestName);
+
+                    m_childScheduler.schedule(time::milliseconds(0),
+                                              [chunkerIt, chunkInterestName]()
+                                              { chunkerIt->second->run(chunkInterestName); });
                 }
                 else
                 {
@@ -268,7 +291,14 @@ namespace ndn::chunks
     {
         const Name &name = interest.getName();
         uint64_t chunkNo = std::stoi(name[-2].toUri());
-        if (m_flowController->isChunkProcessed(chunkNo))
+
+        bool isProcessed;
+        {
+            std::lock_guard<std::mutex> lock(m_flowControllerMutex);
+            isProcessed = m_flowController->isChunkProcessed(chunkNo);
+        }
+
+        if (isProcessed)
         {
             spdlog::debug("Producer::processSegmentInterest()");
             if (m_options.isVerbose)
@@ -276,17 +306,15 @@ namespace ndn::chunks
                 std::cerr << "Interest: " << interest << "\n";
                 spdlog::info("Interest: {}", interest.getName().toUri());
             }
-            const Name &name = interest.getName();
-            uint64_t chunkNo = std::stoi(name[-2].toUri());
-            spdlog::debug("chunkNo is {}", chunkNo);
 
-            if (m_store[chunkNo].empty())
             {
-                // spdlog::debug("temporarily no data");
-                // return;
-                segmentationChunk(chunkNo, interest);
+                std::lock_guard<std::mutex> lock(m_flowControllerMutex);
+                if (m_store[chunkNo].empty())
+                {
+                    segmentationChunk(chunkNo, interest);
+                }
+                BOOST_ASSERT(!m_store[chunkNo].empty());
             }
-            BOOST_ASSERT(!m_store[chunkNo].empty());
 
             std::shared_ptr<Data> data;
 
@@ -294,18 +322,24 @@ namespace ndn::chunks
             {
                 const auto segmentNo = static_cast<size_t>(interest.getName()[-1].toSegment());
                 // specific segment retrieval
-                if (segmentNo < m_store[chunkNo].size())
                 {
-                    data = m_store[chunkNo][segmentNo];
-                    m_nSentSegments[chunkNo]++;
+                    std::lock_guard<std::mutex> lock(m_flowControllerMutex);
+                    if (segmentNo < m_store[chunkNo].size())
+                    {
+                        data = m_store[chunkNo][segmentNo];
+                        m_nSentSegments[chunkNo]++;
+                    }
                 }
             }
-            else if (interest.matchesData(*m_store[chunkNo][0]))
+            else
             {
-
-                // unspecified version or segment number, return first segment
-                data = m_store[chunkNo][0];
-                m_nSentSegments[chunkNo] = 1;
+                std::lock_guard<std::mutex> lock(m_flowControllerMutex);
+                if (interest.matchesData(*m_store[chunkNo][0]))
+                {
+                    // unspecified version or segment number, return first segment
+                    data = m_store[chunkNo][0];
+                    m_nSentSegments[chunkNo] = 1;
+                }
             }
 
             if (data != nullptr)
@@ -321,6 +355,7 @@ namespace ndn::chunks
                 const Name &dataName = data->getName();
                 if (dataName.size() > m_chunkedPrefix.size() && dataName[-1].isSegment())
                 {
+                    std::lock_guard<std::mutex> lock(m_flowControllerMutex);
                     uint64_t sentSegments = m_nSentSegments[chunkNo];
                     auto it = m_store.find(chunkNo);
                     if (it != m_store.end())
@@ -346,12 +381,13 @@ namespace ndn::chunks
         }
         else
         {
-            spdlog::warn("Chunk {} not processed yet ischunkprocessed is {}", chunkNo, m_flowController->isChunkProcessed(chunkNo));
+            spdlog::warn("Chunk {} not processed yet", chunkNo);
             if (m_respondEvents[name.toUri()])
             {
                 m_respondEvents[name.toUri()].cancel();
             }
-            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(0), [this, interest]
+
+            m_respondEvents[name.toUri()] = m_scheduler.schedule(time::milliseconds(20), [this, interest]
                                                                  { respondToInterest(interest); });
         }
     }
@@ -393,6 +429,26 @@ namespace ndn::chunks
         {
             spdlog::error("Error responding to original interest: {}", e.what());
         }
+    }
+
+    void Aggregator::runChildFaceThread()
+    {
+        spdlog::info("Starting child face thread");
+
+        try
+        {
+            while (m_isRunning)
+            {
+                m_childFace->processEvents();
+                std::this_thread::sleep_for(std::chrono::milliseconds(5));
+            }
+        }
+        catch (const std::exception &e)
+        {
+            spdlog::error("Error in child face thread: {}", e.what());
+        }
+
+        spdlog::info("Child face thread terminated");
     }
     void Aggregator::onInitialData(const Interest &interest, const Data &data, const std::string &childName)
     {

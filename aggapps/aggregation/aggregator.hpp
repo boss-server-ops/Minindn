@@ -138,6 +138,8 @@ namespace ndn::chunks
          */
         void respondToInterest(const Interest &interest);
 
+        void runChildFaceThread();
+
     private:
         Name m_prefix;
         Name m_initialPrefix;
@@ -167,7 +169,13 @@ namespace ndn::chunks
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler; ///< one scheduler per Face
         std::unordered_map<std::string, scheduler::ScopedEventId> m_respondEvents;
 
-        std::vector<std::reference_wrapper<Face>> m_faces;
+        // These are for the child face
+        Face *m_childFace;
+        std::thread m_childFaceThread;
+        std::atomic<bool> m_isRunning{true};
+        std::mutex m_flowControllerMutex;
+
+        Scheduler m_childScheduler;
 
         std::shared_ptr<util::RttEstimator::Options> m_rttEstOptions;
         RttEstimatorWithStats m_rttEstimator;

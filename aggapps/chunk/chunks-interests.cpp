@@ -72,6 +72,7 @@ namespace ndn::chunks
     void
     ChunksInterests::onData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
+        spdlog::debug("Received data in chunk");
         m_nReceived++;
         if (!data.empty())
         {

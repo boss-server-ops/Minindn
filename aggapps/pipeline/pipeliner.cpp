@@ -32,6 +32,7 @@ namespace ndn::chunks
   void
   Pipeliner::handleData(const Data &data)
   {
+    spdlog::debug("Received data in pipeliner");
     auto dataPtr = data.shared_from_this();
 
     m_validator.validate(data, [this, dataPtr](const Data &data)
@@ -49,6 +50,7 @@ namespace ndn::chunks
                          { NDN_THROW(DataValidationError(error)); });
     if (m_pipeline->allSegmentsReceived())
     {
+      spdlog::debug("All segments received in pipeliner");
       m_pipeline->getChunker()->onData(m_bufferedData);
       m_bufferedData.clear();
     }

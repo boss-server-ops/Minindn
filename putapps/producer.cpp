@@ -105,6 +105,7 @@ namespace ndn::chunks
             {
                 std::cerr << "Data: " << *data << "\n";
                 spdlog::info("Data: {}", (*data).getName().toUri());
+                spdlog::debug("Data TLV type: {}", data->wireEncode().type());
             }
             m_face.put(*data);
 
@@ -145,7 +146,7 @@ namespace ndn::chunks
         data->setContent(makeStringBlock(tlv::Content, "Get initial interest"));
 
         m_keyChain.sign(*data);
-
+        spdlog::debug("Data TLV type: {}", data->wireEncode().type());
         m_face.put(*data);
 
         spdlog::info("Sent initialization data: {}", data->getName().toUri());

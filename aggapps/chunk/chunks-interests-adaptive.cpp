@@ -35,10 +35,6 @@ namespace ndn::chunks
         if (allChunksReceived())
         {
             cancel();
-            // if (!m_options.isQuiet)
-            // {
-            //     printSummary();
-            // }
             return;
         }
 
@@ -56,8 +52,9 @@ namespace ndn::chunks
     {
         if (isStopping())
             return;
-
-        auto pipeliner = new Pipeliner(security::getAcceptAllValidator());
+        auto chuNo = std::stoi(m_prefix.get(-1).toUri());
+        ChunkInfo &chuInfo = m_chunkInfo[chuNo];
+        chuInfo.pipeliner = new Pipeliner(security::getAcceptAllValidator());
 
         spdlog::debug("Name :{}", m_prefix.toUri());
         auto discover = std::make_unique<DiscoverVersion>(m_face, m_prefix, m_options);
@@ -72,7 +69,7 @@ namespace ndn::chunks
             pipeline = std::make_unique<PipelineInterestsCubic>(m_face, m_rttEstimator, m_options);
         }
         pipeline->setChunker(this);
-        pipeliner->run(std::move(discover), std::move(pipeline));
+        chuInfo.pipeliner->run(std::move(discover), std::move(pipeline));
     }
 
     // it isn't used

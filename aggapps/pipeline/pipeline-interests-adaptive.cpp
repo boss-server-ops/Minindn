@@ -270,6 +270,7 @@ namespace ndn::chunks
   PipelineInterestsAdaptive::handleData(const Interest &interest, const Data &data)
   {
     spdlog::info("Received data for interest {}", interest.getName().toUri());
+    spdlog::debug("data type is {}", data.wireEncode().type());
     if (isStopping())
       return;
 
