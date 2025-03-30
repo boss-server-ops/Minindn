@@ -246,7 +246,7 @@ namespace ndn::chunks
     {
       m_waitEvent.cancel();
     }
-    if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
+    if (!m_hasFinalBlockId || ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo))
     {
       if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {

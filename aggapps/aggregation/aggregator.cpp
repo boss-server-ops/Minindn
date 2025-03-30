@@ -805,7 +805,7 @@ namespace ndn::chunks
         }
         else
         {
-            std::cerr << "ERROR: Null stream for chunk " << chunkNumber << "\n";
+            std::cerr << "Ready to send " << chunkNumber << "\n";
         }
         m_chunkedPrefix = interest.getName().getPrefix(-1);
         if (!m_options.isQuiet)
