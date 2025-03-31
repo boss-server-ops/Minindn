@@ -488,6 +488,7 @@ namespace ndn::chunks
     BOOST_ASSERT(m_chunker->safe_getInFlight() > 0);
     BOOST_ASSERT(m_nInFlight > 0);
     spdlog::debug("inflight decrement from enqueueForRetransmission,m_infight is {},real m_ninflight is{} in chunknumber {}", m_chunker->safe_getInFlight(), m_nInFlight, m_prefix.get(-1).toUri());
+
     m_chunker->safe_InFlightDecrement();
     m_nInFlight--;
     m_retxQueue.push(segNo);
