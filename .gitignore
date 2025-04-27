@@ -22,3 +22,6 @@ dl
 chunkworkdir/
 dcn-workdir/
 isp-workdir/
+resnetworkdir/
+resnet18_project/models
+resnet18_project/logs
