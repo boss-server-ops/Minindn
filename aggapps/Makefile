@@ -7,7 +7,7 @@ LIBS = -lndn-cxx -lboost_system -lspdlog -lfmt -lstdc++fs -lboost_program_option
 
 # 指定源文件和目标文件
 SRC_DIRS = chunk pipeline aggregation controller
-CONSUMER_SRC = $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.cpp)) main.cpp
+CONSUMER_SRC = $(foreach dir, $(SRC_DIRS), $(wildcard $(dir)/*.cpp)) main.cpp request.cpp
 CONSUMER_OBJ = aggregator
 
 # 默认目标

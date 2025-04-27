@@ -18,8 +18,8 @@ namespace ndn::chunks
 
     ChunksInterestsAdaptive::ChunksInterestsAdaptive(Face &face,
                                                      RttEstimatorWithStats &rttEstimator,
-                                                     const Options &opts, Aggregator *aggregator)
-        : ChunksInterests(face, opts, aggregator), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext())
+                                                     const Options &opts)
+        : ChunksInterests(face, opts), m_cwnd(m_options.initCwnd), m_ssthresh(m_options.initSsthresh), m_rttEstimator(rttEstimator), m_scheduler(m_face.getIoContext())
     {
     }
 
@@ -31,7 +31,6 @@ namespace ndn::chunks
     void
     ChunksInterestsAdaptive::doRun()
     {
-        spdlog::debug("ChunksInterestsAdaptive::doRun() called");
         if (allChunksReceived())
         {
             cancel();
@@ -42,7 +41,7 @@ namespace ndn::chunks
             return;
         }
 
-        sendInterest();
+        schedulePackets();
     }
 
     void
@@ -52,15 +51,29 @@ namespace ndn::chunks
     }
 
     void
-    ChunksInterestsAdaptive::sendInterest()
+    ChunksInterestsAdaptive::sendInterest(uint64_t chuNo)
     {
         if (isStopping())
             return;
 
-        auto pipeliner = new Pipeliner(security::getAcceptAllValidator());
+        if (chuNo >= m_options.TotalChunksNumber)
+            return;
 
-        spdlog::debug("Name :{}", m_prefix.toUri());
-        auto discover = std::make_unique<DiscoverVersion>(m_face, m_prefix, m_options);
+        if (m_options.isVerbose)
+        {
+            std::cerr << "Requesting chunk #" << chuNo << "\n";
+            spdlog::debug("Requesting chunk #{}, Name :{}", chuNo, m_prefix.toUri());
+        }
+
+        ChunkInfo &chuInfo = m_chunkInfo[chuNo];
+        chuInfo.pipeliner = new Pipeliner(security::getAcceptAllValidator());
+        Name namewithchuno;
+
+        spdlog::debug("Lambda expression executed for chunk #{}", chuNo);
+        // auto &chuInfo = m_chunkInfo[chuNo];
+        namewithchuno = Name(m_prefix).append(std::to_string(chuNo));
+        spdlog::debug("Name :{}", namewithchuno.toUri());
+        auto discover = std::make_unique<DiscoverVersion>(m_face, namewithchuno, m_options);
         std::unique_ptr<PipelineInterestsAdaptive> pipeline;
 
         if (m_options.pipelineType == "aimd")
@@ -72,7 +85,47 @@ namespace ndn::chunks
             pipeline = std::make_unique<PipelineInterestsCubic>(m_face, m_rttEstimator, m_options);
         }
         pipeline->setChunker(this);
-        pipeliner->run(std::move(discover), std::move(pipeline));
+        chuInfo.pipeliner->run(std::move(discover), std::move(pipeline));
+        chuInfo.timeSent = time::steady_clock::now();
+        m_nSent++;
+        m_highInterest = chuNo;
+        spdlog::debug("Finished sending interest for chunk #{}", chuNo);
+
+        // m_scheduler.schedule(time::milliseconds(0), [this, &pipeline]() mutable
+        // {
+
+        // }
+        // while (pipeline->m_canschedulenext)
+        // {
+
+        //     sendInterest(getNextChunkNo());
+        // }
+
+        checkSendNext(chuNo);
+    }
+
+    void
+    ChunksInterestsAdaptive::checkSendNext(uint64_t chuNo)
+    {
+
+        spdlog::debug("Check send next");
+        ChunkInfo &chuInfo = m_chunkInfo[chuNo];
+        if (m_checkEvent)
+        {
+            m_checkEvent.cancel();
+        }
+        if (chuInfo.pipeliner->m_pipeline->m_canschedulenext)
+        {
+            spdlog::debug("Send next chunk");
+            sendInterest(getNextChunkNo());
+        }
+        else
+        {
+            spdlog::debug("Schedule next check");
+            m_checkEvent = m_scheduler.schedule(time::milliseconds(0), [this, chuNo]
+                                                { checkSendNext(chuNo); });
+        }
+        // recordThroughput();
     }
 
     // it isn't used
@@ -88,6 +141,7 @@ namespace ndn::chunks
             double throughput = 8 * (*m_received) / (m_options.recordingCycle.count() / 1000.0);
             *m_received = 0;
 
+            // 读取拓扑文件中的参数
             std::ifstream topoFile("../../topologies/Linetest.conf");
             std::string line;
             std::string filename;
@@ -151,6 +205,23 @@ namespace ndn::chunks
             logFile.close();
             m_timeStamp = now;
         }
+    }
+
+    void
+    ChunksInterestsAdaptive::schedulePackets()
+    {
+        // BOOST_ASSERT(safe_getInFlight() >= 0);
+        // auto availableWindowSize = static_cast<int64_t>(safe_getWindowSize()) - safe_getInFlight();
+
+        // while (availableWindowSize > 0)
+        // {
+        // availableWindowSize = static_cast<int64_t>(safe_getWindowSize()) - safe_getInFlight();
+        // }
+        // for (int i = 0; i < m_options.TotalChunksNumber; i++)
+        // {
+
+        sendInterest(getNextChunkNo());
+        // }
     }
 
     void ChunksInterestsAdaptive::safe_WindowIncrement(double value)

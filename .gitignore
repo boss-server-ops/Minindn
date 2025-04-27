@@ -20,3 +20,10 @@ dl
 
 
 chunkworkdir/
+dcn-workdir/
+isp-workdir/
+ring-workdir/
+resnetworkdir/
+resnet18_project/models
+resnet18_project/logs
+resnet18_project/data

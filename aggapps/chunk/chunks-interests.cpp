@@ -9,23 +9,31 @@
 namespace ndn::chunks
 {
 
-    ChunksInterests::ChunksInterests(Face &face, const Options &opts, Aggregator *aggregator)
-        : m_options(opts), m_face(face), m_aggregator(aggregator)
+    ChunksInterests::ChunksInterests(Face &face, const Options &opts)
+        : m_options(opts), m_face(face)
     {
-        m_flowController = m_aggregator->getFlowController();
     }
 
     ChunksInterests::~ChunksInterests() = default;
 
     void
-    ChunksInterests::run(const Name &versionedName)
+    ChunksInterests::run(const Name &versionedName, DataCallback dataCb, FailureCallback failureCb)
     {
         BOOST_ASSERT(m_options.disableVersionDiscovery ||
                      (!versionedName.empty() && versionedName[-1].isVersion()));
+        BOOST_ASSERT(dataCb != nullptr);
 
         m_prefix = versionedName;
+        m_onData = std::move(dataCb);
+        m_onFailure = std::move(failureCb);
 
-        m_received = new size_t(0);
+        // record the start time of the chunks
+        m_startTime = time::steady_clock::now();
+
+        // record the first timestamp
+        m_timeStamp = time::steady_clock::now();
+
+        m_received = m_splitinterest->getReceived();
         doRun();
     }
 
@@ -73,47 +81,46 @@ namespace ndn::chunks
     ChunksInterests::onData(std::map<uint64_t, std::shared_ptr<const Data>> &data)
     {
         m_nReceived++;
-        if (!data.empty())
-        {
-            auto &firstData = data.begin()->second;
-            const Name &dataName = firstData->getName();
-
-            //  extract node name and chunk number from the name
-            if (dataName.size() >= 3)
-            {
-                std::string nodeName = dataName[0].toUri();
-
-                // chunknumber is a form of string, need to convert
-                std::string chunkNumberStr = dataName[-2].toUri();
-                uint64_t chunkNumber = 0;
-                try
-                {
-                    // remove possible URI-encoded characters
-                    if (chunkNumberStr.front() == '/' || chunkNumberStr.front() == '%')
-                    {
-                        chunkNumberStr = chunkNumberStr.substr(1);
-                    }
-                    chunkNumber = std::stoull(chunkNumberStr);
-
-                    spdlog::debug("Processing data from node {}, chunk {}", nodeName, chunkNumber);
-
-                    m_flowController->addChunk(nodeName, chunkNumber, data);
-                }
-                catch (const std::exception &e)
-                {
-                    spdlog::error("Failed to parse chunk number '{}': {}", chunkNumberStr, e.what());
-                }
-            }
-            else
-            {
-                spdlog::warn("Data name has incorrect format: {}", dataName.toUri());
-            }
-        }
+        m_onData(data);
+        // m_receivedSize += data.getContent().value_size();
         if (allChunksReceived())
         {
+            m_splitinterest->receivedSplitincrement();
             printSummary();
         }
+        m_splitinterest->onData(data);
     }
+
+    // void
+    // ChunksInterests::onFailure(const std::string &reason)
+    // {
+    //     if (m_isStopping)
+    //         return;
+
+    //     cancel();
+
+    //     if (m_onFailure)
+    //     {
+    //         boost::asio::post(m_face.getIoContext(), [this, reason]
+    //                           { m_onFailure(reason); });
+    //     }
+    // }
+
+    // void
+    // ChunksInterests::printOptions() const
+    // {
+    //     std::cerr << "Chunks parameters:\n"
+    //               << "\tRequest fresh content = " << (m_options.mustBeFresh ? "yes" : "no") << "\n"
+    //               << "\tInterest lifetime = " << m_options.interestLifetime << "\n"
+    //               << "\tMax retries on timeout or Nack = " << (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)) << "\n";
+    //     spdlog::info("Chunks parameters:\n"
+    //                  "\tRequest fresh content = {}\n"
+    //                  "\tInterest lifetime = {}\n"
+    //                  "\tMax retries on timeout or Nack = {}",
+    //                  (m_options.mustBeFresh ? "yes" : "no"),
+    //                  m_options.interestLifetime,
+    //                  (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)));
+    // }
 
     void
     ChunksInterests::printSummary() const
@@ -145,6 +152,18 @@ namespace ndn::chunks
             return std::to_string(throughput) + " Tbit/s";
         }
         return "";
+    }
+
+    void
+    ChunksInterests::setSplitinterest(SplitInterestsAdaptive *splitinterest)
+    {
+        m_splitinterest = splitinterest;
+    }
+
+    SplitInterestsAdaptive *
+    ChunksInterests::getSplitinterest() const
+    {
+        return m_splitinterest;
     }
 
 } // namespace ndn::chunks

@@ -3,8 +3,8 @@
 
 #include "../../core/common.hpp"
 #include "../pipeline/options.hpp"
-#include "../aggregation/aggregator.hpp"
-#include "../controller/controller.hpp"
+#include "../aggregation/split-interests-adaptive.hpp"
+
 #include <ndn-cxx/face.hpp>
 
 #include <functional>
@@ -31,7 +31,7 @@ namespace ndn::chunks
          * Configures the pipelining service without specifying the retrieval namespace.
          * After construction, the method run() must be called in order to start the pipeline.
          */
-        ChunksInterests(Face &face, const Options &opts, Aggregator *aggregator = nullptr);
+        ChunksInterests(Face &face, const Options &opts);
 
         virtual ~ChunksInterests();
 
@@ -46,7 +46,7 @@ namespace ndn::chunks
          * @param onFailure callback if an error occurs, may be empty
          */
         void
-        run(const Name &versionedName);
+        run(const Name &versionedName, DataCallback onData, FailureCallback onFailure);
 
         /**
          * @brief stop all fetch operations
@@ -84,6 +84,12 @@ namespace ndn::chunks
          */
         void
         onData(std::map<uint64_t, std::shared_ptr<const Data>> &m_bufferedData);
+
+        void
+        setSplitinterest(SplitInterestsAdaptive *splitinterest);
+
+        SplitInterestsAdaptive *
+        getSplitinterest() const;
 
     protected:
         time::steady_clock::time_point
@@ -149,9 +155,6 @@ namespace ndn::chunks
         virtual void
         doCancel() = 0;
 
-    public:
-        std::shared_ptr<FlowController> m_flowController;
-
     protected:
         const Options &m_options;
         Face &m_face;
@@ -163,10 +166,11 @@ namespace ndn::chunks
         size_t m_receivedSize = 0;                                         ///< size of received data in bytes
         time::steady_clock::time_point m_timeStamp;                        ///< used to record the throughput
         size_t *m_received = nullptr;                                      ///< size of segments within a recording cycle
-
-        Aggregator *m_aggregator;
+        SplitInterestsAdaptive *m_splitinterest = nullptr;
 
     private:
+        DataCallback m_onData;
+        FailureCallback m_onFailure;
         uint64_t m_nextChunkNo = 0;
         time::steady_clock::time_point m_startTime;
         bool m_isStopping = false;

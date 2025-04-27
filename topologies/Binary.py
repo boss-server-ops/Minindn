@@ -1,7 +1,7 @@
 import argparse
 import os
 
-def generate_conf(k, bw):
+def generate_conf(k, bw, loss):
     nodes = []
     links = []
     
@@ -42,8 +42,8 @@ def generate_conf(k, bw):
                 next_pro += 1
             
             # 添加链接
-            links.append(f"{current}:{left} bw={bw} delay=0 max_queue_size=10000 loss=0")
-            links.append(f"{current}:{right} bw={bw} delay=0 max_queue_size=10000 loss=0")
+            links.append(f"{current}:{left} bw={bw} delay=0 max_queue_size=10000 loss={loss}")
+            links.append(f"{current}:{right} bw={bw} delay=0 max_queue_size=10000 loss={loss}")
             
             # 将子节点添加到队列中，为下一层做准备
             if i < k-2:
@@ -106,7 +106,7 @@ if __name__ == '__main__':
     consumer_path = os.path.abspath('./catapps/consumer')
     Application(consumer).start(consumer_path, 'consumer.log')
     
-    sleep(300)
+    sleep(40)
     MiniNDNCLI(ndn.net)
     ndn.stop()
 """
@@ -115,17 +115,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="生成满二叉树拓扑和测试脚本")
     parser.add_argument('layers', type=int, help="树的层数（如3层生成4个叶节点）")
     parser.add_argument('--bw', type=int, default=100, help="链路带宽（默认100Mbps）")
+    parser.add_argument('--loss', type=float, default=0.0, help="链路丢包率（默认0.0）")
     args = parser.parse_args()
     
     k = args.layers
     bw = args.bw
+    loss = args.loss
     if k < 2:
         print("层数必须大于等于2")
         exit(1)
     
+    if loss < 0 or loss > 1:
+        print("丢包率必须在0到1之间")
+        exit(1)
+    
     # 生成配置文件
-    conf = generate_conf(k, bw)
-    with open(f'binary_tree_{k}.conf', 'w') as f:
+    conf = generate_conf(k, bw, loss)
+    with open(f'binary_tree_{k}_bw{bw}_loss{loss}.conf', 'w') as f:
         f.write(conf)
     
     # 生成测试脚本
@@ -133,4 +139,4 @@ if __name__ == "__main__":
     with open('../examples/BinaryTest.py', 'w') as f:
         f.write(generate_test_script())
     
-    print(f"生成成功！配置文件: binary_tree_{k}.conf，测试脚本: ../examples/BinaryTest.py")
+    print(f"生成成功！配置文件: binary_tree_{k}_bw{bw}_loss{loss}.conf，测试脚本: ../examples/BinaryTest.py")

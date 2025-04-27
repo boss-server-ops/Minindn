@@ -40,7 +40,7 @@ namespace ndn::chunks
         m_timeStamp = time::steady_clock::now();
         std::lock_guard<std::mutex> lock(m_receivedMutex);
         m_received = new size_t(0);
-        m_aggTree.getTreeTopology(m_options.topoFile, "con0");
+        m_aggTree.getTreeTopology(m_options.primarytopoFile, "con0");
         m_outputFile.open(m_options.outputFile, std::ios::binary);
         m_flowController = FlowController::createFromAggTree("../experiments/conconfig.ini", m_outputFile, m_aggTree, "con0");
         doRun();

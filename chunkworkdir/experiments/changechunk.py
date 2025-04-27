@@ -49,16 +49,10 @@ def update_config_files(chunk_size_bytes, total_size_bytes):
     con_config = configparser.ConfigParser(allow_no_value=True)
     con_config.read(con_config_path)
     
-    # 读取segmentsize
-    segment_size_bytes = int(con_config['General'].get('segment-size', '4096'))  # 默认值为4096字节
-    
-    # 计算segnum
-    segnum = (chunk_size_bytes + segment_size_bytes - 1) // segment_size_bytes  # 向上取整
-    
-    # 更新chunk-size和segnum
+    # 更新chunk-size
     con_config['General']['chunk-size'] = str(chunk_size_bytes)
+    # 更新totalchunksnumber
     con_config['General']['totalchunksnumber'] = str(total_chunks)
-    con_config['General']['segnum'] = str(segnum)
     
     # 写入修改后的conconfig.ini
     with open(con_config_path, 'w') as f:

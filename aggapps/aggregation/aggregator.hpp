@@ -7,11 +7,9 @@
 #include <ndn-cxx/security/key-chain.hpp>
 #include <spdlog/spdlog.h>
 #include <ndn-cxx/util/scheduler.hpp>
-#include <ndn-cxx/util/rtt-estimator.hpp>
 
 #include "../pipeline/pipeliner.hpp"
-#include "../pipeline/options.hpp"
-using ndn::util::RttEstimatorWithStats;
+
 #ifdef UNIT_TEST
 #define PUBLIC_WITH_TESTS_ELSE_PRIVATE public
 #else
@@ -33,7 +31,7 @@ namespace ndn::chunks
     class Aggregator : noncopyable
     {
     public:
-        struct PutOptions
+        struct Options
         {
             // Todo: Provided by ndn-tools and need to modify and read from config file
             security::SigningInfo signingInfo;
@@ -50,7 +48,7 @@ namespace ndn::chunks
          *               version number, the current system time is used as version number.
          */
         Aggregator(const Name &prefix, Face &face, KeyChain &keyChain,
-                   const PutOptions &opts, uint64_t chunkNumber, uint64_t totalChunkNumber);
+                   const Options &opts, uint64_t chunkNumber, uint64_t totalChunkNumber);
 
         ~Aggregator();
         /**
@@ -95,21 +93,10 @@ namespace ndn::chunks
         void initializeFromInterest(const Interest &interest);
 
         /**
-         * @brief Initialize the RTT estimator with the provided options.
-         */
-        void initializeRttEstimator();
-
-        /**
-         * @brief Initialize the options of cat.
-         */
-        void initializeCatOptions();
-
-        /**
          * @brief Respond with the requested segment of content.
          */
         void processSegmentInterest(const Interest &interest);
 
-        void chunkSendInterest();
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : std::unordered_map<uint64_t, std::vector<std::shared_ptr<Data>>> m_store;
 
         /**
@@ -144,36 +131,27 @@ namespace ndn::chunks
         Name m_initialPrefix;
         Face &m_face;
         KeyChain &m_keyChain;
-        const PutOptions m_options;
-        Options m_catoptions;
+        const Options m_options;
         uint64_t m_totalChunkNumber;
         // Below is the new data structure for IMAgg
         std::unordered_map<uint64_t, uint64_t> m_nSentSegments;
         bool isini = false;
         std::vector<std::string> m_childNodes;       // Legacy storage for child nodes
         std::vector<ChildNodeInfo> m_childNodeInfos; // Structured information about child nodes
+        std::vector<std::unique_ptr<Face>> m_childFaces;
         std::vector<std::unique_ptr<Pipeliner>> m_pipeliners;
         std::vector<std::thread> m_pipelinerThreads;
         std::map<std::string, bool> m_initializedNodes;               // Tracks which nodes have responded
-        std::map<uint64_t, bool> m_isprocessing;                      ///< Tracks which nodes are processing
         std::map<std::string, std::string> m_initializationResponses; // Stores responses from each node
         Interest m_originalInterest;                                  // Keeps the original interest for response
         bool m_hasOriginalInterest = false;
         std::shared_ptr<FlowController> m_flowController;
         size_t m_numFaces = 1;
+        Request *m_request = nullptr;
         ndn::Name m_chunkedPrefix;
-        std::map<std::string, std::unique_ptr<ChunksInterestsAdaptive>> m_childChunker; //< every child node is assigned a chunker
-        std::map<std::string, std::unique_ptr<RttEstimatorWithStats>> m_rttEstimators;  //< every child node is assigned an RTT estimator
 
         PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_scheduler; ///< one scheduler per Face
         std::unordered_map<std::string, scheduler::ScopedEventId> m_respondEvents;
-
-        Face *m_childFace;
-        PUBLIC_WITH_TESTS_ELSE_PRIVATE : Scheduler m_childScheduler;
-        std::thread m_childFaceThread;
-
-        std::shared_ptr<util::RttEstimator::Options> m_rttEstOptions;
-        RttEstimatorWithStats m_rttEstimator;
 
     public:
         spdlog::logger *logger;

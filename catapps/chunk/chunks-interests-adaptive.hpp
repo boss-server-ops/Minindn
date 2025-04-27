@@ -137,6 +137,9 @@ namespace ndn::chunks
         void safe_setLastDecrease(time::steady_clock::time_point value);
         time::steady_clock::time_point safe_getLastDecrease();
 
+        void safe_setLastMaxWin(double value);
+        double safe_getLastMaxWin();
+
         void
         schedulePackets();
 
@@ -267,6 +270,9 @@ namespace ndn::chunks
         double m_wmax = 0.0;                           ///< window size before last window decrease
         double m_lastWmax = 0.0;                       ///< last wmax
         time::steady_clock::time_point m_lastDecrease; ///< time of last window decrease
+
+        // This is for bic
+        double m_lastMaxWin;
     };
 
 } // namespace ndn::chunks

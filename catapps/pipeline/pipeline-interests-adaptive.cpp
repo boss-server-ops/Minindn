@@ -180,26 +180,9 @@ namespace ndn::chunks
     BOOST_ASSERT(m_nInFlight >= 0);
     auto availableWindowSize = static_cast<int64_t>(m_chunker->safe_getWindowSize()) - m_chunker->safe_getInFlight();
     spdlog::debug("Available window size: {}", availableWindowSize);
-    // TODO: this logic is actually wrong, we should consider more about how to fit the available window size
-    /*
-    When the chunk isn't needed, the retransmission would definitely be sent because before all the data are received.
-    There must be the enough window size to send the retransmission.
-    */
-    // if (!m_retxQueue.empty() && availableWindowSize <= 0)
-    // {
-    //   spdlog::debug("schedule because retxqueue is not empty");
-    //   uint64_t retxSegNo = m_retxQueue.front();
-    //   m_retxQueue.pop();
-    //   sendInterest(retxSegNo, true);
-    // }
     while (availableWindowSize > 0)
     {
-      // // if it is the first time to send the interest, we need to record the starttime
-      // if (m_hasSent == false)
-      // {
-      //   setStartTime(time::steady_clock::now());
-      //   m_hasSent = true;
-      // }
+
       spdlog::debug("Available window size: {}", availableWindowSize);
       if (!m_retxQueue.empty())
       { // do retransmission first
@@ -246,7 +229,7 @@ namespace ndn::chunks
     {
       m_waitEvent.cancel();
     }
-    if (!m_hasFinalBlockId || ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo))
+    if (!m_hasFinalBlockId || (m_hasFinalBlockId && ((m_nSent - m_nRetransmitted) <= m_lastSegmentNo)))
     {
       if (!(m_chunker->getSplitinterest()->m_flowController->shouldPauseFlow(m_prefix.get(0).toUri())))
       {
@@ -441,10 +424,14 @@ namespace ndn::chunks
   {
     if (isStopping())
       return;
-
+    uint64_t segNo = getSegmentFromPacket(interest);
+    if (m_segmentInfo.at(segNo).state == SegmentState::InRetxQueue)
+    {
+      spdlog::debug("handleLifetimeExpiration, the segment is already in retx queue");
+      return;
+    }
     m_nTimeouts++;
 
-    uint64_t segNo = getSegmentFromPacket(interest);
     spdlog::debug("enqueue happened from handleLifetimeExpiration");
     enqueueForRetransmission(segNo);
     recordTimeout(segNo);
