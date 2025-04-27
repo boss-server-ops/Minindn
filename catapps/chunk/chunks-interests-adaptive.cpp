@@ -3,6 +3,9 @@
 #include "../pipeline/pipeline-interests-adaptive.hpp"
 #include "../pipeline/pipeline-interests-aimd.hpp"
 #include "../pipeline/pipeline-interests-cubic.hpp"
+#include "../pipeline/pipeline-interests-highspeed.hpp"
+#include "../pipeline/pipeline-interests-bic.hpp"
+#include "../pipeline/pipeline-interests-hybla.hpp"
 #include "../pipeline/pipeliner.hpp"
 #include "../pipeline/discover-version.hpp"
 
@@ -80,10 +83,28 @@ namespace ndn::chunks
         {
             pipeline = std::make_unique<PipelineInterestsAimd>(m_face, m_rttEstimator, m_options);
         }
-        else
+        else if (m_options.pipelineType == "highspeed")
+        {
+            pipeline = std::make_unique<PipelineInterestsHscc>(m_face, m_rttEstimator, m_options);
+        }
+        else if (m_options.pipelineType == "cubic")
         {
             pipeline = std::make_unique<PipelineInterestsCubic>(m_face, m_rttEstimator, m_options);
         }
+        else if (m_options.pipelineType == "bic")
+        {
+            pipeline = std::make_unique<PipelineInterestsBic>(m_face, m_rttEstimator, m_options);
+        }
+        else if (m_options.pipelineType == "hybla")
+        {
+            pipeline = std::make_unique<PipelineInterestsHybla>(m_face, m_rttEstimator, m_options);
+        }
+        else
+        {
+            spdlog::error("Invalid pipeline type: {}", m_options.pipelineType);
+            return;
+        }
+
         pipeline->setChunker(this);
         chuInfo.pipeliner->run(std::move(discover), std::move(pipeline));
         chuInfo.timeSent = time::steady_clock::now();
@@ -291,6 +312,14 @@ namespace ndn::chunks
     time::steady_clock::time_point ChunksInterestsAdaptive::safe_getLastDecrease()
     {
         return m_lastDecrease;
+    }
+    void ChunksInterestsAdaptive::safe_setLastMaxWin(double value)
+    {
+        m_lastMaxWin = value;
+    }
+    double ChunksInterestsAdaptive::safe_getLastMaxWin()
+    {
+        return m_lastMaxWin;
     }
 
 } // namespace ndn::chunks

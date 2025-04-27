@@ -178,7 +178,7 @@ namespace ndn::chunks
 
                         // Generate the filename dynamically based on the parameters
                         filename = "throughput_bw" + bw + "_delay" + delay +
-                                   "_queue" + max_queue_size + "_loss" + loss + "_splitsize" + splitSize + ".txt";
+                                   "_queue" + max_queue_size + "_loss" + loss + "type" + m_options.pipelineType + ".txt";
                         break; // Stop after processing the first valid line
                     }
                 }

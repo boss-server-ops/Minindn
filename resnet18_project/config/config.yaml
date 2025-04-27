@@ -1,0 +1,31 @@
+# 数据集配置
+data:
+  dataset: 'cifar10'  # 使用的数据集
+  train_batch_size: 128
+  test_batch_size: 256
+  num_workers: 4
+  data_dir: './data'
+
+# 模型配置
+model:
+  name: 'resnet18'
+  num_classes: 10
+  pretrained: false
+
+# 训练配置
+training:
+  epochs: 100
+  learning_rate: 0.01
+  weight_decay: 0.0005
+  momentum: 0.9
+  lr_scheduler: 'cosine'  # 可选: 'step', 'cosine'
+  lr_steps: [30, 60, 90]  # 仅用于step调度器
+  lr_gamma: 0.1  # 仅用于step调度器
+  checkpoint_dir: './models'
+  log_dir: './logs'
+  save_frequency: 10  # 每多少个epoch保存一次模型
+
+# CUDA配置
+cuda:
+  use_cuda: true
+  gpu_id: 0  # 使用哪个GPU

@@ -41,6 +41,12 @@ namespace ndn::chunks
     double cubicBeta = 0.7;      ///< cubic multiplicative decrease factor
     bool enableFastConv = false; ///< use cubic fast convergence
 
+    // highspeed pipeline options
+    double hsccGrowthFactor = 0.01;
+    double hsccReductionFactor = 0.2;
+    double bandwidthExp = 0.8;
+    double bdpScale = 1.1;
+
     // Chunks pipeline options
     size_t TotalChunksNumber = 5; ///< total number of chunks in the Aggregation process
 
@@ -48,6 +54,7 @@ namespace ndn::chunks
     // Recording cycle
     time::milliseconds recordingCycle = time::milliseconds(1000);
     std::string topoFile = "../../topologies/Customtest.conf";
+    std::string primarytopoFile = "../../topologies/dcn_primary_a2_p2_b30_l0.0.conf";
   };
 
 } // namespace ndn::chunks

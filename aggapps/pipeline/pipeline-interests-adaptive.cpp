@@ -441,9 +441,15 @@ namespace ndn::chunks
     if (isStopping())
       return;
 
+    uint64_t segNo = getSegmentFromPacket(interest);
+    if (m_segmentInfo.at(segNo).state == SegmentState::InRetxQueue)
+    {
+      spdlog::debug("handleLifetimeExpiration, the segment is already in retx queue");
+      return;
+    }
+
     m_nTimeouts++;
 
-    uint64_t segNo = getSegmentFromPacket(interest);
     spdlog::debug("enqueue happened from handleLifetimeExpiration");
     enqueueForRetransmission(segNo);
     recordTimeout(segNo);

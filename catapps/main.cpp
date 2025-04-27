@@ -3,6 +3,9 @@
 #include "pipeline/discover-version.hpp"
 #include "pipeline/pipeline-interests-aimd.hpp"
 #include "pipeline/pipeline-interests-cubic.hpp"
+#include "pipeline/pipeline-interests-highspeed.hpp"
+#include "pipeline/pipeline-interests-bic.hpp"
+#include "pipeline/pipeline-interests-hybla.hpp"
 #include "pipeline/statistics-collector.hpp"
 #include "../core/version.hpp"
 
@@ -65,6 +68,11 @@ namespace ndn::chunks
            << "    aimd-step                  Additive increase step\n"
            << "    aimd-beta                  Multiplicative decrease factor\n"
            << "    reset-cwnd-to-init         Reset the window to the initial value after a congestion event (true/false)\n"
+           << "  [HighSpeedPipeline]\n"
+           << "    hscc-growth-factor         HSCC growth factor\n"
+           << "    hscc-reduction-factor      HSCC reduction factor\n"
+           << "    hscc-bandwidth-exp        HSCC bandwidth sensitivity exponent\n"
+           << "    bdp-scale                  BDP scale factor\n"
            << "  [CubicPipeline]\n"
            << "    cubic-beta                 Cubic multiplicative decrease factor\n"
            << "    enable-fast-conv           Use cubic fast convergence (true/false)\n"
@@ -128,8 +136,14 @@ namespace ndn::chunks
             opts.cubicBeta = tree.get<double>("CubicPipeline.cubic-beta", opts.cubicBeta);
             opts.enableFastConv = tree.get<bool>("CubicPipeline.enable-fast-conv", opts.enableFastConv);
 
+            opts.hsccGrowthFactor = tree.get<double>("HighSpeedPipeline.hscc-growth-factor", opts.hsccGrowthFactor);
+            opts.hsccReductionFactor = tree.get<double>("HighSpeedPipeline.hscc-reduction-factor", opts.hsccReductionFactor);
+            opts.bandwidthExp = tree.get<double>("HighSpeedPipeline.hscc-bandwidth-exp", opts.bandwidthExp);
+            opts.bdpScale = tree.get<double>("HighSpeedPipeline.bdp-scale", opts.bdpScale);
+
             opts.recordingCycle = time::milliseconds(tree.get<time::milliseconds::rep>("General.recordingcycle", opts.recordingCycle.count()));
             opts.topoFile = tree.get<std::string>("General.topofilepath", opts.topoFile);
+            opts.primarytopoFile = tree.get<std::string>("General.primarytopofilepath", opts.primarytopoFile);
             logLevel = tree.get<std::string>("General.log-level", "debug");
         }
         catch (const pt::ptree_error &e)
@@ -278,6 +292,12 @@ namespace ndn::chunks
                 adaptivePipeline = std::make_unique<PipelineInterestsAimd>(*faces[0], *rttEstimator, options);
             else if (pipelineType == "cubic")
                 adaptivePipeline = std::make_unique<PipelineInterestsCubic>(*faces[0], *rttEstimator, options);
+            else if (pipelineType == "highspeed")
+                adaptivePipeline = std::make_unique<PipelineInterestsHscc>(*faces[0], *rttEstimator, options);
+            else if (pipelineType == "bic")
+                adaptivePipeline = std::make_unique<PipelineInterestsBic>(*faces[0], *rttEstimator, options);
+            else if (pipelineType == "hybla")
+                adaptivePipeline = std::make_unique<PipelineInterestsHybla>(*faces[0], *rttEstimator, options);
             else
             {
                 std::cerr << "ERROR: '" << pipelineType << "' is not a valid pipeline type\n";
