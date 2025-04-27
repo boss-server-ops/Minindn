@@ -32,5 +32,23 @@ The documentation can be built using:
 and is available under `docs/_build/html`.
 
 
-### cat and put apps
-1. 检查链路丢包，积压数据包等情况  pro0 tc -s qdisc show dev pro0-eth0 con0 tc -s qdisc show dev con0-eth0
+# apps
+1. catapps implements the consumer functionality, putapps implements the producer functionality, and aggapps serves as the aggregator.
+2. In the context of gradient synchronization, mmconsumer acts as the consumer, while mmproducer serves as the producer. However, in the experiments, the roles of the consumer and producer are reversed during gradient synchronization compared to aggregation. Therefore, their positions have been swapped in the network topology.
+
+# experiment setup
+1. The CIFAR-10 dataset is used in the experiments.
+The resnet18_project directory contains the required requirements.txt file for setting up the experimental environment.
+It is important to ensure that the nodes on MiniNDN use the same Python environment as the local machine; otherwise, errors related to missing packages may occur.
+2. The configurations for the consumer, producer, and aggregator are located in the experiments directory.
+To use them, you need to move the relevant files to the designated working directory.
+
+# examples
+The examples directory contains MiniNDN scripts used to start MiniNDN processes and to run applications on each node.
+Specifically for this project, these applications refer to the executable files compiled from each type of app.
+
+# script
+1. There are several *auto.py scripts in the main directory.
+These scripts are designed to help automatically run multiple sets of experiments under different network topologies and link parameters.
+2. The kill_process.sh script is used to terminate the consumer and other application processes,
+because stopping a MiniNDN script does not necessarily terminate the running application processes on the nodes.
