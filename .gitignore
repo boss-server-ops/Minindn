@@ -25,3 +25,4 @@ isp-workdir/
 resnetworkdir/
 resnet18_project/models
 resnet18_project/logs
+resnet18_project/data
