@@ -169,7 +169,7 @@ namespace ndn::chunks
             return 0;
         }
 
-        if (!readConfigFile("../experiments/conconfig.ini", options, prefix, nameConv, pipelineType,
+        if (!readConfigFile("../experiments/conconfig for sync.ini", options, prefix, nameConv, pipelineType,
                             cwndPath, rttPath, rttEstOptions, logLevel))
         {
             return 2;

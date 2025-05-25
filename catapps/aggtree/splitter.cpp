@@ -37,16 +37,4 @@ namespace ndn::chunks
         return;
     }
 
-    // void
-    // Splitter::writeInOrderData()
-    // {
-    //     for (auto it = m_bufferedData.begin();
-    //          it != m_bufferedData.end() && it->first == m_nextToPrint;
-    //          it = m_bufferedData.erase(it), ++m_nextToPrint)
-    //     {
-    //         const Block &content = it->second->getContent();
-    //         m_outputStream.write(reinterpret_cast<const char *>(content.value()), content.value_size());
-    //     }
-    // }
-
 } // namespace ndn::chunks

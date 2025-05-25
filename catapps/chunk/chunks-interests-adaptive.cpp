@@ -112,16 +112,6 @@ namespace ndn::chunks
         m_highInterest = chuNo;
         spdlog::debug("Finished sending interest for chunk #{}", chuNo);
 
-        // m_scheduler.schedule(time::milliseconds(0), [this, &pipeline]() mutable
-        // {
-
-        // }
-        // while (pipeline->m_canschedulenext)
-        // {
-
-        //     sendInterest(getNextChunkNo());
-        // }
-
         checkSendNext(chuNo);
     }
 

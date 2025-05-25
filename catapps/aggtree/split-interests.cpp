@@ -136,37 +136,6 @@ namespace ndn::chunks
         }
     }
 
-    // void
-    // SplitInterests::onFailure(const std::string &reason)
-    // {
-    //     if (m_isStopping)
-    //         return;
-
-    //     cancel();
-
-    //     if (m_onFailure)
-    //     {
-    //         boost::asio::post(m_face.getIoContext(), [this, reason]
-    //                           { m_onFailure(reason); });
-    //     }
-    // }
-
-    // void
-    // SplitInterests::printOptions() const
-    // {
-    //     std::cerr << "Split parameters:\n"
-    //               << "\tRequest fresh content = " << (m_options.mustBeFresh ? "yes" : "no") << "\n"
-    //               << "\tInterest lifetime = " << m_options.interestLifetime << "\n"
-    //               << "\tMax retries on timeout or Nack = " << (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)) << "\n";
-    //     spdlog::info("Split parameters:\n"
-    //                  "\tRequest fresh content = {}\n"
-    //                  "\tInterest lifetime = {}\n"
-    //                  "\tMax retries on timeout or Nack = {}",
-    //                  (m_options.mustBeFresh ? "yes" : "no"),
-    //                  m_options.interestLifetime,
-    //                  (m_options.maxRetriesOnTimeoutOrNack == DataFetcher::MAX_RETRIES_INFINITE ? "infinite" : std::to_string(m_options.maxRetriesOnTimeoutOrNack)));
-    // }
-
     void
     SplitInterests::printSummary() const
     {

@@ -1,0 +1,8 @@
+# consumer.hpp consumer.cpp
+类似splitter和pipeliner，也是作为一个模块（比如chunk和split连接的桥梁），代码非常相似，由于编写过程中不想改名字了，就用了consumer，其实应该写一个chunker这样的名字会更好。
+
+# chunk-interests
+也是基类，其中包括所有的chunk是否收齐的这样一个操作。
+
+# chunk-interests-adaptive
+chunk部分的核心实现，需要协调什么时候发送下一个chunk的数据的interest，所以要隔一段时间就判断一次是否要接着发送。这里recordthroughput已经弃用了，是写代码的时候调试用的，真正的recordthroughput在splitinterestadaptive中。注意scheduleevent在绑定一个事件比如m_checkEvent之前，一定要确保，这个event已经cancel过了。
