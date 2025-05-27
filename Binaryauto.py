@@ -2,6 +2,31 @@ import os
 import getpass
 import time
 import shutil
+import subprocess
+
+# 运行 changechunk.py 设置块大小和文件大小参数
+def configure_chunk_parameters(chunk_size="1MB", total_size="10MB"):
+    """
+    运行 changechunk.py 脚本设置块大小和文件总大小
+    
+    参数:
+        chunk_size: 每个块的大小，如 "1MB"
+        total_size: 总文件大小，如 "10MB"
+    """
+    # 确保实验目录存在
+    os.makedirs("./chunkworkdir/experiments", exist_ok=True)
+    
+    # 构建命令并执行
+    changechunk_path = "./chunkworkdir/experiments/changechunk.py"
+    command = f"cd ./chunkworkdir/experiments && python3 changechunk.py {chunk_size} {total_size}"
+    
+    print(f"正在配置块参数: 块大小={chunk_size}, 文件大小={total_size}")
+    result = os.system(command)
+    
+    if result == 0:
+        print("块大小和文件大小配置成功")
+    else:
+        print(f"警告: changechunk.py 执行失败，返回码: {result}")
 
 # 更新 .ini 文件中的 topofilepath
 def update_ini_files(binary_file_name, pipeline_type):
@@ -55,6 +80,9 @@ def generate_topology(binary_param, bw_param, loss_param):
 
 # 主程序
 if __name__ == "__main__":
+    # 首先运行 changechunk.py 设置块大小和文件大小
+    configure_chunk_parameters(chunk_size="1MB", total_size="10MB")
+    
     # 固定参数组
     parameter_sets = [
         {"binary_param": "3", "bw_param": "30", "loss_param": "0.0"},

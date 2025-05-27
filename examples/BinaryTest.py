@@ -50,6 +50,6 @@ if __name__ == '__main__':
     consumer_path = os.path.abspath('./catapps/consumer')
     Application(consumer).start(consumer_path, 'consumer.log')
     
-    sleep(500)
+    sleep(40)
     MiniNDNCLI(ndn.net)
     ndn.stop()
